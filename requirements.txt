@@ -1,0 +1,6 @@
+torch>=2.0
+datasets
+tokenizers
+fastapi
+uvicorn[standard]
+google-generativeai

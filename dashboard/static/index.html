@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SelfEvo Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>SelfEvo</h1>
+        <span id="status-badge" class="status-badge status-idle">Idle</span>
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav">
+        <button class="active" data-page="overview">Overview</button>
+        <button data-page="history">History</button>
+        <button data-page="trends">Trends</button>
+        <button data-page="compare">Compare</button>
+        <button data-page="control">Control</button>
+        <button data-page="playground">Playground</button>
+    </div>
+
+    <div class="main">
+        <!-- === Overview Page === -->
+        <div id="page-overview" class="page active">
+            <div class="card-grid">
+                <div class="card">
+                    <div class="card-label">Best val_loss</div>
+                    <div class="card-value" id="best-val-loss">--</div>
+                    <div class="card-sub" id="best-experiment"></div>
+                </div>
+                <div class="card">
+                    <div class="card-label">Total Experiments</div>
+                    <div class="card-value" id="total-experiments">0</div>
+                    <div class="card-sub" id="today-count"></div>
+                </div>
+                <div class="card">
+                    <div class="card-label">Keep / Discard / Crash</div>
+                    <div class="card-value" id="kdc-stats">0 / 0 / 0</div>
+                    <div class="card-sub" id="keep-rate"></div>
+                </div>
+                <div class="card">
+                    <div class="card-label">Current Phase</div>
+                    <div class="card-value" id="current-phase">--</div>
+                    <div class="card-sub" id="data-status"></div>
+                </div>
+            </div>
+
+            <!-- Running status banner -->
+            <div id="running-banner" class="running-banner" style="display:none">
+                <div class="running-dot"></div>
+                <span id="running-banner-text">Experiment loop is running...</span>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Recent val_loss Trend</div>
+                <canvas id="overview-chart" height="200"></canvas>
+            </div>
+
+            <div class="card" id="last-experiment-card" style="display:none">
+                <div class="card-label">Last Experiment</div>
+                <div id="last-experiment-info"></div>
+            </div>
+        </div>
+
+        <!-- === History Page === -->
+        <div id="page-history" class="page">
+            <div class="filters">
+                <select class="filter-select" id="filter-status">
+                    <option value="">All Status</option>
+                    <option value="keep">Keep</option>
+                    <option value="discard">Discard</option>
+                    <option value="crash">Crash</option>
+                </select>
+                <select class="filter-select" id="filter-class">
+                    <option value="">All Classes</option>
+                    <option value="architecture">Architecture</option>
+                    <option value="optimizer">Optimizer</option>
+                    <option value="schedule">Schedule</option>
+                    <option value="batching">Batching</option>
+                    <option value="exploration">Exploration</option>
+                    <option value="exploitation">Exploitation</option>
+                    <option value="simplification">Simplification</option>
+                    <option value="repair">Repair</option>
+                </select>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Time</th>
+                            <th>Class</th>
+                            <th>Patch</th>
+                            <th>val_loss</th>
+                            <th>Time(s)</th>
+                            <th>Memory(MB)</th>
+                            <th>Status</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-tbody"></tbody>
+                </table>
+            </div>
+            <div id="history-empty" class="empty-state" style="display:none">
+                <h3>No experiments yet</h3>
+                <p>Start running experiments from the Control page.</p>
+            </div>
+        </div>
+
+        <!-- === Trends Page === -->
+        <div id="page-trends" class="page">
+            <div class="chart-container">
+                <div class="chart-title">val_loss Over Time</div>
+                <canvas id="trend-valloss" height="250"></canvas>
+            </div>
+            <div class="chart-row">
+                <div class="chart-container">
+                    <div class="chart-title">Keep Rate (Rolling 5)</div>
+                    <canvas id="trend-keeprate" height="200"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Crash Rate (Rolling 5)</div>
+                    <canvas id="trend-crashrate" height="200"></canvas>
+                </div>
+            </div>
+            <div class="chart-container">
+                <div class="chart-title">Success Rate by Experiment Class</div>
+                <canvas id="trend-class" height="200"></canvas>
+            </div>
+        </div>
+
+        <!-- === Compare Page === -->
+        <div id="page-compare" class="page">
+            <div class="filters">
+                <select class="filter-select" id="compare-select">
+                    <option value="">Select an experiment to compare...</option>
+                </select>
+            </div>
+            <div class="compare-grid" id="compare-content" style="display:none">
+                <div class="compare-card">
+                    <h4>Baseline</h4>
+                    <div id="compare-baseline"></div>
+                </div>
+                <div class="compare-card">
+                    <h4>Selected Experiment</h4>
+                    <div id="compare-experiment"></div>
+                </div>
+            </div>
+            <div id="compare-empty" class="empty-state">
+                <h3>Select an experiment</h3>
+                <p>Choose an experiment from the dropdown to compare with the baseline.</p>
+            </div>
+        </div>
+
+        <!-- === Control Page === -->
+        <div id="page-control" class="page">
+            <div class="control-section">
+                <h3>Experiment Control</h3>
+                <div class="btn-group">
+                    <button class="btn btn-success" onclick="controlAction('start')">Start</button>
+                    <button class="btn" onclick="controlAction('pause')">Pause</button>
+                    <button class="btn btn-primary" onclick="controlAction('step')">Single Step</button>
+                    <button class="btn btn-danger" onclick="controlAction('rollback')">Rollback to Best</button>
+                </div>
+            </div>
+            <div class="control-section">
+                <h3>Baseline Management</h3>
+                <div class="btn-group">
+                    <button class="btn" onclick="controlAction('lock')">Lock Baseline</button>
+                    <button class="btn" onclick="controlAction('unlock')">Unlock Baseline</button>
+                </div>
+            </div>
+            <div class="control-section">
+                <h3>Settings</h3>
+                <div class="toggle-row">
+                    <span class="toggle-label">Allow High-Risk Experiments</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="setting-high-risk" checked onchange="updateSettings()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-row">
+                    <span class="toggle-label">Allow Large Changes</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="setting-large-changes" checked onchange="updateSettings()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        <!-- === Playground Page === -->
+        <div id="page-playground" class="page">
+            <div class="playground-layout">
+                <!-- Left: Input -->
+                <div class="playground-input-panel">
+                    <div class="card">
+                        <div class="card-label">MODEL INFO</div>
+                        <div id="model-info-bar" style="margin-top:8px;font-size:13px;color:var(--text-muted)">Loading...</div>
+                    </div>
+
+                    <div class="card" style="margin-top:16px">
+                        <div class="card-label">PROMPT</div>
+                        <textarea id="pg-prompt" class="pg-textarea" placeholder="Enter your prompt here...">Once upon a time</textarea>
+                    </div>
+
+                    <div class="card" style="margin-top:16px">
+                        <div class="card-label">PARAMETERS</div>
+                        <div class="pg-param-row">
+                            <label>Temperature</label>
+                            <input type="range" id="pg-temperature" min="0" max="2" step="0.05" value="0.8">
+                            <span id="pg-temperature-val">0.8</span>
+                        </div>
+                        <div class="pg-param-row">
+                            <label>Top-K</label>
+                            <input type="range" id="pg-topk" min="0" max="100" step="1" value="40">
+                            <span id="pg-topk-val">40</span>
+                        </div>
+                        <div class="pg-param-row">
+                            <label>Max Tokens</label>
+                            <input type="range" id="pg-maxtokens" min="10" max="500" step="10" value="200">
+                            <span id="pg-maxtokens-val">200</span>
+                        </div>
+                    </div>
+
+                    <div class="btn-group" style="margin-top:16px">
+                        <button class="btn btn-primary" id="pg-generate-btn" onclick="generateText()">Generate</button>
+                        <button class="btn" onclick="retrainModel()">Retrain Model</button>
+                    </div>
+                </div>
+
+                <!-- Right: Output -->
+                <div class="playground-output-panel">
+                    <div class="card" style="min-height:300px">
+                        <div class="card-label">OUTPUT</div>
+                        <div id="pg-output" class="pg-output-area">
+                            <span class="pg-placeholder">Generated text will appear here...</span>
+                        </div>
+                    </div>
+                    <div id="pg-stats" class="card" style="margin-top:16px;display:none">
+                        <div class="card-label">GENERATION STATS</div>
+                        <div id="pg-stats-content" style="font-size:13px;margin-top:8px"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

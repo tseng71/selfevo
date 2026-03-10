@@ -1,0 +1,34 @@
+# Data (large binary files)
+data/
+*.bin
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Runtime state (regenerated each run)
+memory.jsonl
+state.json
+checkpoint.pt
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+venv/
+.venv/
+
+# Claude
+.claude/
