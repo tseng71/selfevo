@@ -3,4 +3,7 @@ datasets
 tokenizers
 fastapi
 uvicorn[standard]
+# AI providers (install at least one)
 google-generativeai
+openai
+anthropic

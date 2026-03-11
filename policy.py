@@ -1,7 +1,15 @@
 """
 SelfEvo - Policy Module (v2: AI-Powered)
-Uses Gemini AI to analyze experiment history and generate intelligent code modifications.
-Falls back to heuristic rules if API is unavailable.
+Uses AI (Gemini / OpenAI / Claude) to analyze experiment history and generate
+intelligent code modifications. Falls back to heuristic rules if no API is available.
+
+Supported providers (set via environment variable):
+  - GEMINI_API_KEY  → Google Gemini
+  - OPENAI_API_KEY  → OpenAI (GPT-4o / GPT-5.4 etc.)
+  - ANTHROPIC_API_KEY → Anthropic Claude (Opus 4.6 etc.)
+
+If multiple keys are set, priority: Gemini > OpenAI > Claude.
+Override with AI_PROVIDER=gemini|openai|claude.
 """
 
 import json
@@ -84,8 +92,37 @@ def detect_phase(history):
 
 
 # ============================================================
-# AI-Powered Policy (Gemini)
+# AI-Powered Policy (Gemini / OpenAI / Claude)
 # ============================================================
+
+# Provider config: (env_var, default_model)
+AI_PROVIDERS = {
+    "gemini":   ("GEMINI_API_KEY",    "gemini-2.5-flash"),
+    "openai":   ("OPENAI_API_KEY",    "gpt-4o"),
+    "claude":   ("ANTHROPIC_API_KEY", "claude-sonnet-4-20250514"),
+}
+
+# Allow user to override model name: AI_MODEL=gpt-5.4 etc.
+AI_MODEL_ENV = "AI_MODEL"
+AI_PROVIDER_ENV = "AI_PROVIDER"
+
+
+def _detect_provider():
+    """Detect which AI provider to use based on env vars."""
+    forced = os.environ.get(AI_PROVIDER_ENV, "").lower().strip()
+    if forced and forced in AI_PROVIDERS:
+        env_var, _ = AI_PROVIDERS[forced]
+        if os.environ.get(env_var):
+            return forced
+        print(f"[policy] AI_PROVIDER={forced} but {env_var} not set, trying others...")
+
+    # Auto-detect by priority
+    for provider in ["gemini", "openai", "claude"]:
+        env_var, _ = AI_PROVIDERS[provider]
+        if os.environ.get(env_var):
+            return provider
+    return None
+
 
 def _build_ai_prompt(baseline_code, cfg, history, phase):
     """Build the prompt for the AI agent."""
@@ -194,30 +231,69 @@ def _extract_mutable_sections(code):
     return code
 
 
+def _call_gemini(api_key, model, prompt):
+    """Call Gemini API and return response text."""
+    from google import genai
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model=model,
+        contents=prompt,
+        config={"temperature": 0.7, "max_output_tokens": 16384},
+    )
+    return response.text.strip()
+
+
+def _call_openai(api_key, model, prompt):
+    """Call OpenAI API and return response text."""
+    from openai import OpenAI
+    client = OpenAI(api_key=api_key)
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        max_tokens=16384,
+    )
+    return response.choices[0].message.content.strip()
+
+
+def _call_claude(api_key, model, prompt):
+    """Call Anthropic Claude API and return response text."""
+    import anthropic
+    client = anthropic.Anthropic(api_key=api_key)
+    response = client.messages.create(
+        model=model,
+        max_tokens=16384,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+    )
+    return response.content[0].text.strip()
+
+
 def generate_patch_plan_ai(history, cfg, phase):
-    """Use Gemini AI to generate a patch plan."""
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-    if not api_key:
+    """Use AI (Gemini/OpenAI/Claude) to generate a patch plan."""
+    provider = _detect_provider()
+    if not provider:
         return None
 
+    env_var, default_model = AI_PROVIDERS[provider]
+    api_key = os.environ.get(env_var, "")
+    model = os.environ.get(AI_MODEL_ENV, "").strip() or default_model
+
     try:
-        from google import genai
-
-        client = genai.Client(api_key=api_key)
-
         baseline_code = BASELINE_SCRIPT.read_text() if BASELINE_SCRIPT.exists() else ""
         prompt = _build_ai_prompt(baseline_code, cfg, history, phase)
 
-        response = client.models.generate_content(
-            model="gemini-3.1-pro-preview",
-            contents=prompt,
-            config={
-                "temperature": 0.7,
-                "max_output_tokens": 16384,
-            },
-        )
+        # Call the appropriate provider
+        if provider == "gemini":
+            text = _call_gemini(api_key, model, prompt)
+        elif provider == "openai":
+            text = _call_openai(api_key, model, prompt)
+        elif provider == "claude":
+            text = _call_claude(api_key, model, prompt)
+        else:
+            return None
 
-        text = response.text.strip()
+        print(f"[policy/ai] Provider: {provider} ({model})")
 
         # Extract JSON from response (handle markdown code blocks)
         if "```json" in text:
@@ -295,12 +371,12 @@ def generate_patch_plan_ai(history, cfg, phase):
             "rollback_trigger": "val_loss > baseline + 0.5 or crash",
             "mutations": plan["mutations"],
             "high_risk": high_risk,
-            "source": "gemini",
+            "source": provider,
             "analysis": analysis,
         }
 
     except Exception as e:
-        print(f"[policy/ai] Gemini API error: {e}")
+        print(f"[policy/ai] {provider} API error: {e}")
         traceback.print_exc()
         return None
 
@@ -489,7 +565,8 @@ def generate_patch_plan(history=None):
     # Try AI-powered generation
     ai_plan = generate_patch_plan_ai(history, cfg, phase)
     if ai_plan:
-        print(f"[policy] Using Gemini AI: {ai_plan.get('hypothesis', '')[:60]}")
+        src = ai_plan.get("source", "ai")
+        print(f"[policy] Using {src}: {ai_plan.get('hypothesis', '')[:60]}")
         return ai_plan
 
     # Fallback to heuristics

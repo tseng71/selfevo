@@ -6,7 +6,7 @@ SelfEvo is a local self-evolving experiment system inspired by Andrej Karpathy's
 
 SelfEvo wraps a tiny decoder-only Transformer (trained on [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories)) in a closed-loop evolution cycle:
 
-1. **Propose** — An AI policy (powered by Gemini) analyzes experiment history and proposes code modifications to the training script
+1. **Propose** — An AI policy (Gemini / OpenAI / Claude) analyzes experiment history and proposes code modifications to the training script
 2. **Train** — The modified script runs a fixed-budget training session
 3. **Judge** — Results are compared against the current best (baseline) using `val_loss`
 4. **Keep or Discard** — Better results update the baseline; worse results are rolled back
@@ -17,7 +17,7 @@ A local web dashboard lets you observe progress, review experiments, and interve
 ## Key Features
 
 - **Single optimization target**: Only `mutable_train.py` is modified — evaluation logic is frozen
-- **AI-powered policy**: Uses Gemini API to generate intelligent code modifications (falls back to heuristic rules if API is unavailable)
+- **AI-powered policy**: Supports Gemini, OpenAI, and Claude for intelligent code modifications (falls back to heuristic rules if no API key is set)
 - **Automatic rollback**: Failed or regressed experiments are safely discarded
 - **Full experiment history**: Every round is logged in `memory.jsonl`
 - **Local web dashboard**: Visual overview of progress, trends, and controls
@@ -45,18 +45,26 @@ cd selfevo
 pip install -r requirements.txt
 ```
 
-### 2. Set up your Gemini API key
+### 2. Set up your AI API key
 
-The AI-powered policy module requires a [Google Gemini API key](https://aistudio.google.com/apikey). Without it, the system falls back to heuristic-based mutations.
+The AI policy module supports **three providers** — set any one:
+
+| Provider | Env Variable | Get a Key |
+|----------|-------------|-----------|
+| Google Gemini | `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com/apikey) |
+| OpenAI (GPT-4o / GPT-5.4) | `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/api-keys) |
+| Anthropic Claude (Opus 4.6) | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/) |
 
 ```bash
-export GEMINI_API_KEY="your-api-key-here"
+# Pick one:
+export GEMINI_API_KEY="your-key"
+export OPENAI_API_KEY="your-key"
+export ANTHROPIC_API_KEY="your-key"
 ```
 
-On Windows:
-```cmd
-set GEMINI_API_KEY=your-api-key-here
-```
+If multiple keys are set, priority is Gemini → OpenAI → Claude. Override with `AI_PROVIDER=openai` or `AI_PROVIDER=claude`. Override the model with `AI_MODEL=gpt-5.4` etc.
+
+Without any API key, the system falls back to built-in heuristic mutations.
 
 ### 3. Prepare data
 
@@ -132,11 +140,11 @@ The system runs an endless loop. Each round is one complete experiment — fully
 
 ### Step 1: Analyze history and propose a change (`policy.py`)
 
-The AI (Gemini) reads the last 15–20 experiment records from `memory.jsonl` and the current training script code. It analyzes what types of changes led to improvements, what failed, whether val_loss is still improving or has plateaued, and what hasn't been tried yet.
+The AI reads the last 15–20 experiment records from `memory.jsonl` and the current training script code. It analyzes what types of changes led to improvements, what failed, whether val_loss is still improving or has plateaued, and what hasn't been tried yet.
 
 Based on this analysis, it generates a **patch plan** — a specific find-and-replace modification to `mutable_train.py`. For example, it might change `n_layer = 4` to `n_layer = 6`, rewrite the learning rate schedule, or introduce a new normalization technique.
 
-If the Gemini API is unavailable, the system falls back to built-in heuristic rules that randomly explore hyperparameter changes.
+If no AI API key is configured, the system falls back to built-in heuristic rules that randomly explore hyperparameter changes.
 
 ### Step 2: Apply the change and train (`runner.py`)
 
