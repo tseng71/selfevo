@@ -72,7 +72,21 @@ This downloads TinyStories, trains a BPE tokenizer, and creates cached binary fi
 python main.py
 ```
 
-Then open the dashboard URL shown in the terminal (default: http://localhost:8000) to watch the experiments.
+Then open the dashboard URL shown in the terminal (default: http://localhost:8000).
+
+The experiment loop starts automatically. Use the controls on the dashboard **Overview** page to:
+
+- **Pause** — stop the loop after the current experiment finishes
+- **Resume** — continue the loop
+- **Single Step** — run exactly one experiment, then pause
+
+You can also run with flags:
+
+```bash
+python main.py --no-dashboard    # Run experiment loop only (no web UI)
+python main.py --dashboard-only  # Start dashboard without experiment loop
+python main.py --single-step     # Run one experiment and exit
+```
 
 ## Project Structure
 

@@ -86,6 +86,9 @@ async function loadOverview() {
     };
     bannerText.textContent = statusMessages[status.status] || `Status: ${status.status}`;
 
+    // Update control buttons
+    updateControlButtons(status.status);
+
     // Last experiment
     const lastCard = document.getElementById('last-experiment-card');
     if (status.last_experiment) {
@@ -165,19 +168,26 @@ async function loadHistory() {
     }
 
     empty.style.display = 'none';
-    tbody.innerHTML = result.experiments.map((e, i) => `
+    tbody.innerHTML = result.experiments.map((e, i) => {
+        // Build AI summary: hypothesis + code changes
+        const hypothesis = e.hypothesis || '';
+        const patch = e.patch_summary || '';
+        const summary = hypothesis
+            ? `<div class="summary-hypothesis">${escapeHtml(hypothesis)}</div><div class="summary-patch">${escapeHtml(patch)}</div>`
+            : `<div class="summary-patch">${escapeHtml(patch)}</div>`;
+        return `
         <tr>
             <td>${result.total - i}</td>
             <td>${formatTime(e.timestamp)}</td>
             <td>${e.experiment_class || '--'}</td>
-            <td class="reason-text" style="max-width:200px">${e.patch_summary || '--'}</td>
+            <td class="summary-cell">${summary}</td>
             <td>${e.val_loss !== null && e.val_loss !== undefined ? e.val_loss.toFixed(4) : '--'}</td>
-            <td>${e.train_time_sec !== null ? e.train_time_sec.toFixed(1) : '--'}</td>
-            <td>${e.peak_mem_mb !== null ? e.peak_mem_mb.toFixed(0) : '--'}</td>
+            <td>${e.train_time_sec !== null && e.train_time_sec !== undefined ? e.train_time_sec.toFixed(1) : '--'}</td>
+            <td>${e.peak_mem_mb !== null && e.peak_mem_mb !== undefined ? e.peak_mem_mb.toFixed(0) : '--'}</td>
             <td><span class="badge badge-${e.status}">${e.status}</span></td>
             <td class="reason-text">${e.judge_reason || '--'}</td>
-        </tr>
-    `).join('');
+        </tr>`;
+    }).join('');
 }
 
 document.getElementById('filter-status').addEventListener('change', loadHistory);
@@ -370,6 +380,8 @@ function formatExperimentDetail(e) {
 }
 
 // === Control Actions ===
+let currentStatus = 'idle';
+
 async function controlAction(action) {
     try {
         const result = await apiPost('/api/control/' + action);
@@ -377,6 +389,33 @@ async function controlAction(action) {
         setTimeout(loadOverview, 500);
     } catch (err) {
         showToast('Error: ' + err.message);
+    }
+}
+
+function toggleLoop() {
+    if (currentStatus === 'running' || currentStatus === 'training') {
+        controlAction('pause');
+    } else {
+        controlAction('start');
+    }
+}
+
+function updateControlButtons(status) {
+    currentStatus = status;
+    const isRunning = (status === 'running' || status === 'training');
+
+    // Overview toggle button
+    const overviewBtn = document.getElementById('overview-toggle-btn');
+    if (overviewBtn) {
+        overviewBtn.textContent = isRunning ? '⏸ Pause' : '▶ Resume';
+        overviewBtn.className = isRunning ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-success';
+    }
+
+    // Control page toggle button
+    const controlBtn = document.getElementById('control-toggle-btn');
+    if (controlBtn) {
+        controlBtn.textContent = isRunning ? '⏸ Pause' : '▶ Start';
+        controlBtn.className = isRunning ? 'btn btn-warning' : 'btn btn-success';
     }
 }
 

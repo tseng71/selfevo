@@ -50,10 +50,14 @@
                 </div>
             </div>
 
-            <!-- Running status banner -->
+            <!-- Running status banner with controls -->
             <div id="running-banner" class="running-banner" style="display:none">
                 <div class="running-dot"></div>
                 <span id="running-banner-text">Experiment loop is running...</span>
+                <div class="banner-controls">
+                    <button class="btn btn-sm" id="overview-toggle-btn" onclick="toggleLoop()">Pause</button>
+                    <button class="btn btn-sm btn-primary" id="overview-step-btn" onclick="controlAction('step')">Single Step</button>
+                </div>
             </div>
 
             <div class="chart-container">
@@ -95,12 +99,12 @@
                             <th>#</th>
                             <th>Time</th>
                             <th>Class</th>
-                            <th>Patch</th>
+                            <th>AI Summary</th>
                             <th>val_loss</th>
                             <th>Time(s)</th>
-                            <th>Memory(MB)</th>
+                            <th>Mem(MB)</th>
                             <th>Status</th>
-                            <th>Reason</th>
+                            <th>Verdict</th>
                         </tr>
                     </thead>
                     <tbody id="history-tbody"></tbody>
@@ -162,8 +166,7 @@
             <div class="control-section">
                 <h3>Experiment Control</h3>
                 <div class="btn-group">
-                    <button class="btn btn-success" onclick="controlAction('start')">Start</button>
-                    <button class="btn" onclick="controlAction('pause')">Pause</button>
+                    <button class="btn btn-success" id="control-toggle-btn" onclick="toggleLoop()">Start</button>
                     <button class="btn btn-primary" onclick="controlAction('step')">Single Step</button>
                     <button class="btn btn-danger" onclick="controlAction('rollback')">Rollback to Best</button>
                 </div>
