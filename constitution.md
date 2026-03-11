@@ -1,42 +1,42 @@
-# SelfEvo Constitution - 最高规则
+# SelfEvo Constitution - Supreme Rules
 
-本文件定义了 SelfEvo 系统的不可违反约束。任何模块都不得修改本文件内容。
+This file defines the inviolable constraints of the SelfEvo system. No module may modify the contents of this file.
 
-## 1. 唯一优化对象
+## 1. Sole Optimization Target
 
-系统只允许修改 `mutable_train.py`。不得修改其他模块的核心逻辑。
+The system is only allowed to modify `mutable_train.py`. No other module's core logic may be modified.
 
-## 2. 不可修改项
+## 2. Immutable Items
 
-以下内容在任何实验中都不得被修改：
+The following must never be modified in any experiment:
 
-- **验证数据集**：`data/val.bin` 的内容和加载方式
-- **评估逻辑**：`evaluate()` 函数和 `val_loss` 的计算方式
-- **输出 Schema**：训练脚本的 JSON 输出字段和格式
-- **预算上限**：`max_steps` 不得超过 PRD 定义的预算范围
-- **裁决逻辑**：`judge.py` 的评判规则
-- **记忆格式**：`memory.jsonl` 的记录结构
+- **Validation dataset**: The contents and loading method of `data/val.bin`
+- **Evaluation logic**: The `evaluate()` function and `val_loss` computation
+- **Output schema**: The JSON output fields and format of the training script
+- **Budget ceiling**: `max_steps` must not exceed the budget range defined in the PRD
+- **Judging logic**: The judging rules in `judge.py`
+- **Memory format**: The record structure of `memory.jsonl`
 
-## 3. 允许修改项
+## 3. Modifiable Items
 
-在 `mutable_train.py` 中，以下区域可以被 patch 修改：
+Within `mutable_train.py`, the following areas may be modified by patches:
 
-- 模型配置（层数、宽度、头数、dropout）
-- 优化器参数（学习率、权重衰减、betas）
-- 学习率调度（warmup、decay 策略）
-- 批量大小和梯度累积
-- 模型架构细节（MLP ratio、norm 选择等）
+- Model configuration (layers, width, heads, dropout)
+- Optimizer parameters (learning rate, weight decay, betas)
+- Learning rate schedule (warmup, decay strategy)
+- Batch size and gradient accumulation
+- Model architecture details (MLP ratio, normalization choice, etc.)
 
-## 4. 安全约束
+## 4. Safety Constraints
 
-- crash 不得污染 baseline
-- 每轮实验必须完整记录到 memory.jsonl
-- baseline 只在 keep 时更新
-- 系统崩溃后必须能恢复
-- 用户随时可以暂停和回滚
+- A crash must not corrupt the baseline
+- Every experiment round must be fully recorded in memory.jsonl
+- The baseline is only updated on a keep decision
+- The system must be recoverable after a crash
+- The user can pause and rollback at any time
 
-## 5. 规则优先级
+## 5. Rule Priority
 
-规则 > 策略 > 实验结果
+Rules > Strategy > Experiment Results
 
-系统不得通过修改评估标准来"作弊"获得更好的指标。
+The system must not "cheat" by modifying evaluation criteria to achieve better metrics.
