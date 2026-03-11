@@ -16,6 +16,7 @@ memory.jsonl
 state.json
 checkpoint.pt
 _latest_checkpoint.pt
+baseline/mutable_train.py
 
 # macOS
 .DS_Store
