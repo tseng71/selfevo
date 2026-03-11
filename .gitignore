@@ -16,7 +16,10 @@ memory.jsonl
 state.json
 checkpoint.pt
 _latest_checkpoint.pt
-baseline/mutable_train.py
+
+# Live training files (evolved during experiments, use mutable_train_default.py as template)
+mutable_train.py
+baseline/
 
 # macOS
 .DS_Store

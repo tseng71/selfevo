@@ -6,6 +6,7 @@ Starts the dashboard server and experiment loop.
 import argparse
 import json
 import os
+import shutil
 import signal
 import sys
 import threading
@@ -27,6 +28,8 @@ STATE_PATH = PROJECT_DIR / "state.json"
 MEMORY_PATH = PROJECT_DIR / "memory.jsonl"
 BASELINE_DIR = PROJECT_DIR / "baseline"
 DATA_DIR = PROJECT_DIR / "data"
+MUTABLE_SCRIPT = PROJECT_DIR / "mutable_train.py"
+MUTABLE_DEFAULT = PROJECT_DIR / "mutable_train_default.py"
 
 # Add project to path
 sys.path.insert(0, str(PROJECT_DIR))
@@ -166,11 +169,20 @@ def main():
 
     print("[main] Data: OK")
 
-    # Step 2: Initialize baseline
+    # Step 2: Initialize mutable_train.py from default template if needed
+    if not MUTABLE_SCRIPT.exists():
+        if MUTABLE_DEFAULT.exists():
+            shutil.copy2(MUTABLE_DEFAULT, MUTABLE_SCRIPT)
+            print("[main] Created mutable_train.py from default template")
+        else:
+            print("[main] ERROR: mutable_train_default.py not found.")
+            sys.exit(1)
+
+    # Step 3: Initialize baseline
     init_baseline()
     print("[main] Baseline: OK")
 
-    # Step 3: Initialize state
+    # Step 4: Initialize state
     state = load_state()
     if args.auto_start:
         state["status"] = "running"
@@ -180,7 +192,7 @@ def main():
     state["last_update"] = datetime.now().isoformat()
     save_state(state)
 
-    # Step 4: Start components
+    # Step 5: Start components
     if args.no_dashboard:
         # Just run experiment loop in main thread
         experiment_loop()

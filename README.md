@@ -98,7 +98,8 @@ python main.py --single-step     # Run one experiment and exit
 selfevo/
 ├── main.py               # Entry point: dashboard + experiment loop
 ├── prepare.py            # Data preparation (TinyStories)
-├── mutable_train.py      # THE optimization target (auto-modified)
+├── mutable_train_default.py  # Default training script template
+├── mutable_train.py      # THE optimization target (auto-created from default, git-ignored)
 ├── policy.py             # AI policy: proposes code changes
 ├── runner.py             # Applies patches, runs training, calls judge
 ├── judge.py              # Compares results: keep / discard / crash
