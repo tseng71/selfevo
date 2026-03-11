@@ -49,11 +49,11 @@ pip install -r requirements.txt
 
 The AI policy module supports **three providers** — set any one:
 
-| Provider | Env Variable | Get a Key |
-|----------|-------------|-----------|
-| Google Gemini | `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com/apikey) |
-| OpenAI (GPT-4o / GPT-5.4) | `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/api-keys) |
-| Anthropic Claude (Opus 4.6) | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/) |
+| Provider | Env Variable | Default Model | Get a Key |
+|----------|-------------|---------------|-----------|
+| Google Gemini | `GEMINI_API_KEY` | gemini-2.5-pro | [aistudio.google.com](https://aistudio.google.com/apikey) |
+| OpenAI | `OPENAI_API_KEY` | gpt-4.1 | [platform.openai.com](https://platform.openai.com/api-keys) |
+| Anthropic Claude | `ANTHROPIC_API_KEY` | claude-opus-4-20250514 | [console.anthropic.com](https://console.anthropic.com/) |
 
 ```bash
 # Pick one:
@@ -62,7 +62,7 @@ export OPENAI_API_KEY="your-key"
 export ANTHROPIC_API_KEY="your-key"
 ```
 
-If multiple keys are set, priority is Gemini → OpenAI → Claude. Override with `AI_PROVIDER=openai` or `AI_PROVIDER=claude`. Override the model with `AI_MODEL=gpt-5.4` etc.
+If multiple keys are set, priority is Gemini → OpenAI → Claude. You can also switch the provider and model from the dashboard **Control** page, or override via environment variables: `AI_PROVIDER=openai` and `AI_MODEL=gpt-4.1`.
 
 Without any API key, the system falls back to built-in heuristic mutations.
 

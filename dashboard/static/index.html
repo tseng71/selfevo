@@ -179,6 +179,24 @@
                 </div>
             </div>
             <div class="control-section">
+                <h3>AI Provider</h3>
+                <div class="setting-row">
+                    <label class="setting-label">Provider</label>
+                    <select class="setting-select" id="setting-ai-provider" onchange="updateAISettings()">
+                        <option value="">Auto-detect</option>
+                        <option value="gemini">Google Gemini</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="claude">Anthropic Claude</option>
+                    </select>
+                    <span class="setting-hint" id="ai-provider-hint"></span>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label">Model</label>
+                    <input type="text" class="setting-input" id="setting-ai-model" placeholder="Leave empty for default" onchange="updateAISettings()">
+                    <span class="setting-hint" id="ai-model-hint"></span>
+                </div>
+            </div>
+            <div class="control-section">
                 <h3>Settings</h3>
                 <div class="toggle-row">
                     <span class="toggle-label">Allow High-Risk Experiments</span>

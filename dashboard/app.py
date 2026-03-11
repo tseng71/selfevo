@@ -321,8 +321,37 @@ def update_settings(settings: dict):
         state["allow_high_risk"] = settings["allow_high_risk"]
     if "allow_large_changes" in settings:
         state["allow_large_changes"] = settings["allow_large_changes"]
+    if "ai_provider" in settings:
+        state["ai_provider"] = settings["ai_provider"] or None
+    if "ai_model" in settings:
+        state["ai_model"] = settings["ai_model"] or None
     save_state(state)
     return {"ok": True, "settings": settings}
+
+
+@app.get("/api/ai_config")
+def get_ai_config():
+    """Get current AI provider/model configuration."""
+    import os as _os
+    state = load_state()
+    # Detect which keys are available
+    available = []
+    if _os.environ.get("GEMINI_API_KEY"):
+        available.append("gemini")
+    if _os.environ.get("OPENAI_API_KEY"):
+        available.append("openai")
+    if _os.environ.get("ANTHROPIC_API_KEY"):
+        available.append("claude")
+    return {
+        "available_providers": available,
+        "current_provider": state.get("ai_provider"),
+        "current_model": state.get("ai_model"),
+        "defaults": {
+            "gemini": "gemini-2.5-pro",
+            "openai": "gpt-4.1",
+            "claude": "claude-opus-4-20250514",
+        },
+    }
 
 
 # === Text Generation (Playground) ===

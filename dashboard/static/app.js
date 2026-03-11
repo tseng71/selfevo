@@ -18,6 +18,7 @@ document.querySelectorAll('.nav button').forEach(btn => {
         else if (page === 'history') loadHistory();
         else if (page === 'trends') loadTrends();
         else if (page === 'compare') loadCompareOptions();
+        else if (page === 'control') loadAIConfig();
         else if (page === 'playground') loadPlayground();
     });
 });
@@ -403,19 +404,36 @@ function toggleLoop() {
 function updateControlButtons(status) {
     currentStatus = status;
     const isRunning = (status === 'running' || status === 'training');
+    const isPaused = (status === 'paused');
 
     // Overview toggle button
     const overviewBtn = document.getElementById('overview-toggle-btn');
     if (overviewBtn) {
-        overviewBtn.textContent = isRunning ? '⏸ Pause' : '▶ Resume';
-        overviewBtn.className = isRunning ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-success';
+        if (isRunning) {
+            overviewBtn.textContent = '⏸ Pause';
+            overviewBtn.className = 'btn btn-sm btn-warning';
+        } else if (isPaused) {
+            overviewBtn.textContent = '▶ Resume';
+            overviewBtn.className = 'btn btn-sm btn-success';
+        } else {
+            overviewBtn.textContent = '▶ Start';
+            overviewBtn.className = 'btn btn-sm btn-success';
+        }
     }
 
     // Control page toggle button
     const controlBtn = document.getElementById('control-toggle-btn');
     if (controlBtn) {
-        controlBtn.textContent = isRunning ? '⏸ Pause' : '▶ Start';
-        controlBtn.className = isRunning ? 'btn btn-warning' : 'btn btn-success';
+        if (isRunning) {
+            controlBtn.textContent = '⏸ Pause';
+            controlBtn.className = 'btn btn-warning';
+        } else if (isPaused) {
+            controlBtn.textContent = '▶ Resume';
+            controlBtn.className = 'btn btn-success';
+        } else {
+            controlBtn.textContent = '▶ Start';
+            controlBtn.className = 'btn btn-success';
+        }
     }
 }
 
@@ -427,6 +445,48 @@ async function updateSettings() {
         allow_large_changes: largeChanges,
     });
     showToast('Settings updated');
+}
+
+// AI Provider settings
+async function loadAIConfig() {
+    try {
+        const config = await apiGet('/api/ai_config');
+        const providerSelect = document.getElementById('setting-ai-provider');
+        const modelInput = document.getElementById('setting-ai-model');
+        const providerHint = document.getElementById('ai-provider-hint');
+        const modelHint = document.getElementById('ai-model-hint');
+
+        // Mark available providers
+        Array.from(providerSelect.options).forEach(opt => {
+            if (opt.value && !config.available_providers.includes(opt.value)) {
+                opt.textContent = opt.textContent.replace(' (no key)', '') + ' (no key)';
+                opt.disabled = true;
+            } else if (opt.value) {
+                opt.disabled = false;
+                opt.textContent = opt.textContent.replace(' (no key)', '');
+            }
+        });
+
+        // Set current values
+        providerSelect.value = config.current_provider || '';
+        modelInput.value = config.current_model || '';
+
+        // Hints
+        const active = config.current_provider || config.available_providers[0] || 'none';
+        const defaultModel = config.defaults[active] || '';
+        providerHint.textContent = config.available_providers.length
+            ? `Available: ${config.available_providers.join(', ')}`
+            : 'No API key set';
+        modelHint.textContent = defaultModel ? `Default: ${defaultModel}` : '';
+    } catch (e) {}
+}
+
+async function updateAISettings() {
+    const provider = document.getElementById('setting-ai-provider').value;
+    const model = document.getElementById('setting-ai-model').value.trim();
+    await apiPost('/api/settings', { ai_provider: provider, ai_model: model });
+    showToast('AI settings updated');
+    loadAIConfig();
 }
 
 // === Helpers ===

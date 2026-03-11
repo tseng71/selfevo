@@ -255,6 +255,43 @@ tr:hover { background: var(--surface2); }
     font-size: 13px;
 }
 
+/* Settings rows */
+.setting-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.setting-row:last-child { border-bottom: none; }
+
+.setting-label {
+    font-size: 14px;
+    min-width: 70px;
+    color: var(--text-muted);
+}
+
+.setting-select, .setting-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    min-width: 200px;
+}
+
+.setting-select:focus, .setting-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.setting-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
 /* Toggle switch */
 .toggle-row {
     display: flex;

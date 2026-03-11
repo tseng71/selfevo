@@ -97,18 +97,32 @@ def detect_phase(history):
 
 # Provider config: (env_var, default_model)
 AI_PROVIDERS = {
-    "gemini":   ("GEMINI_API_KEY",    "gemini-2.5-flash"),
-    "openai":   ("OPENAI_API_KEY",    "gpt-4o"),
-    "claude":   ("ANTHROPIC_API_KEY", "claude-sonnet-4-20250514"),
+    "gemini":   ("GEMINI_API_KEY",    "gemini-2.5-pro"),
+    "openai":   ("OPENAI_API_KEY",    "gpt-4.1"),
+    "claude":   ("ANTHROPIC_API_KEY", "claude-opus-4-20250514"),
 }
 
 # Allow user to override model name: AI_MODEL=gpt-5.4 etc.
 AI_MODEL_ENV = "AI_MODEL"
 AI_PROVIDER_ENV = "AI_PROVIDER"
+STATE_PATH = Path(__file__).parent / "state.json"
+
+
+def _load_ai_settings_from_state():
+    """Read AI provider/model override from state.json (set via dashboard)."""
+    if not STATE_PATH.exists():
+        return None, None
+    try:
+        with open(STATE_PATH) as f:
+            state = json.load(f)
+        return state.get("ai_provider"), state.get("ai_model")
+    except Exception:
+        return None, None
 
 
 def _detect_provider():
-    """Detect which AI provider to use based on env vars."""
+    """Detect which AI provider to use. Priority: env var > state.json > auto-detect."""
+    # 1. Explicit env var
     forced = os.environ.get(AI_PROVIDER_ENV, "").lower().strip()
     if forced and forced in AI_PROVIDERS:
         env_var, _ = AI_PROVIDERS[forced]
@@ -116,7 +130,14 @@ def _detect_provider():
             return forced
         print(f"[policy] AI_PROVIDER={forced} but {env_var} not set, trying others...")
 
-    # Auto-detect by priority
+    # 2. Dashboard setting (state.json)
+    state_provider, _ = _load_ai_settings_from_state()
+    if state_provider and state_provider in AI_PROVIDERS:
+        env_var, _ = AI_PROVIDERS[state_provider]
+        if os.environ.get(env_var):
+            return state_provider
+
+    # 3. Auto-detect by priority
     for provider in ["gemini", "openai", "claude"]:
         env_var, _ = AI_PROVIDERS[provider]
         if os.environ.get(env_var):
@@ -277,7 +298,12 @@ def generate_patch_plan_ai(history, cfg, phase):
 
     env_var, default_model = AI_PROVIDERS[provider]
     api_key = os.environ.get(env_var, "")
-    model = os.environ.get(AI_MODEL_ENV, "").strip() or default_model
+
+    # Model priority: env var > state.json > default
+    model = os.environ.get(AI_MODEL_ENV, "").strip()
+    if not model:
+        _, state_model = _load_ai_settings_from_state()
+        model = state_model or default_model
 
     try:
         baseline_code = BASELINE_SCRIPT.read_text() if BASELINE_SCRIPT.exists() else ""
