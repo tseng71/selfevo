@@ -112,16 +112,38 @@ The optimization target is a **tiny decoder-only Transformer** — the same arch
 
 **What evolves**: The system automatically modifies model architecture (depth, width, heads), optimizer settings (learning rate, weight decay), training schedule (warmup, decay), and batch configuration. The evaluation metric (`val_loss` on a fixed validation set) stays frozen so improvements are real and comparable.
 
-## How It Works
+## How the Automatic Evolution Works
 
-SelfEvo takes the idea of "AI doing research" and narrows it down to a minimal, verifiable loop:
+The system runs an endless loop. Each round is one complete experiment — fully automatic, no human input needed:
 
-- **One file to optimize**: `mutable_train.py` — a tiny Transformer training script
-- **One metric to chase**: `val_loss` on a fixed validation set
-- **One fixed budget**: 500 training steps per experiment
-- **One clear rule**: if it's better, keep it; if not, discard it
+### Step 1: Analyze history and propose a change (`policy.py`)
 
-The AI policy reads experiment history, identifies what worked and what didn't, and proposes the next modification. Over many rounds, the system accumulates experience and (ideally) converges toward better configurations and architectures.
+The AI (Gemini) reads the last 15–20 experiment records from `memory.jsonl` and the current training script code. It analyzes what types of changes led to improvements, what failed, whether val_loss is still improving or has plateaued, and what hasn't been tried yet.
+
+Based on this analysis, it generates a **patch plan** — a specific find-and-replace modification to `mutable_train.py`. For example, it might change `n_layer = 4` to `n_layer = 6`, rewrite the learning rate schedule, or introduce a new normalization technique.
+
+If the Gemini API is unavailable, the system falls back to built-in heuristic rules that randomly explore hyperparameter changes.
+
+### Step 2: Apply the change and train (`runner.py`)
+
+The runner takes the current best version of `mutable_train.py` (stored in `baseline/`), applies the proposed modification, and launches training as a subprocess. Training runs for exactly **500 steps** — this fixed budget ensures every experiment is fairly comparable regardless of what the AI changed.
+
+### Step 3: Judge the result (`judge.py`)
+
+After training completes, the judge compares the new `val_loss` against the baseline:
+- **Keep** — val_loss improved, or val_loss is similar but the model has fewer parameters
+- **Discard** — val_loss got worse or didn't meaningfully improve
+- **Crash** — training failed (syntax error, NaN, out of memory, timeout)
+
+### Step 4: Update or rollback
+
+If **keep**: the modified script becomes the new baseline. Future experiments build on this improved version. If **discard** or **crash**: the modification is thrown away and the script is restored. Nothing is lost.
+
+### Step 5: Record and learn
+
+Every experiment is logged to `memory.jsonl` with full details: what was changed, the hypothesis, val_loss, training time, memory usage, verdict, and a short lesson (e.g., "architecture change was beneficial" or "optimizer change caused crash — avoid this direction").
+
+The next round, the AI reads this updated history and makes a more informed decision. Over many rounds, the system builds up a memory of what works and what doesn't, gradually converging toward better model configurations and architectures.
 
 ## Background
 
