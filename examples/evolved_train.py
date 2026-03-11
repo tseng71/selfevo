@@ -18,22 +18,22 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # === CONFIG === (MUTABLE)
-n_layer = 4
-n_head = 4
+n_layer = 6
+n_head = 2
 n_embd = 128
 block_size = 256
-dropout = 0.1
+dropout = 0.02
 bias = False
 
-learning_rate = 3e-4
-weight_decay = 0.1
+learning_rate = 1e-3
+weight_decay = 0.01
 beta1 = 0.9
-beta2 = 0.95
-grad_clip = 1.0
+beta2 = 0.999
+grad_clip = 0.3
 
-batch_size = 32
-gradient_accumulation_steps = 1
-warmup_steps = 50
+batch_size = 96
+gradient_accumulation_steps = 2
+warmup_steps = 30
 max_steps = 500
 
 eval_interval = 50
@@ -54,19 +54,22 @@ class RMSNorm(nn.Module):
         super().__init__()
         self.eps = eps
         self.weight = nn.Parameter(torch.ones(dim))
+        self.bias = nn.Parameter(torch.zeros(dim))
 
     def forward(self, x):
         norm = torch.rsqrt(x.float().pow(2).mean(-1, keepdim=True) + self.eps)
-        return (x.float() * norm).type_as(x) * self.weight
+        return (x.float() * norm).type_as(x) * self.weight + self.bias
 
 
 class SwiGLU(nn.Module):
-    def __init__(self, dim, hidden_dim=None, dropout_rate=0.0, bias=False):
+    def __init__(self, dim, hidden_dim=None, dropout_rate=0.0):
         super().__init__()
         hidden_dim = hidden_dim or int(dim * 8 / 3)
-        hidden_dim = ((hidden_dim + 31) // 32) * 32
+        # Round to nearest multiple of 8 for efficiency
+        hidden_dim = ((hidden_dim + 7) // 8) * 8
         self.w1 = nn.Linear(dim, hidden_dim, bias=bias)
         self.w2 = nn.Linear(hidden_dim, dim, bias=bias)
+        self.w2.SCALE_INIT = True
         self.w3 = nn.Linear(dim, hidden_dim, bias=bias)
         self.dropout = nn.Dropout(dropout_rate)
 
@@ -75,13 +78,14 @@ class SwiGLU(nn.Module):
 
 
 class CausalSelfAttention(nn.Module):
-    def __init__(self, dim, n_heads, dropout_rate=0.0, bias=False):
+    def __init__(self, dim, n_heads, dropout_rate=0.0):
         super().__init__()
         assert dim % n_heads == 0
         self.n_heads = n_heads
         self.head_dim = dim // n_heads
         self.qkv = nn.Linear(dim, 3 * dim, bias=bias)
         self.out_proj = nn.Linear(dim, dim, bias=bias)
+        self.out_proj.SCALE_INIT = True
         self.attn_dropout = nn.Dropout(dropout_rate)
         self.resid_dropout = nn.Dropout(dropout_rate)
 
@@ -93,6 +97,20 @@ class CausalSelfAttention(nn.Module):
         k = k.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
 
+        # Fast QK-Norm to stabilize attention
+        q = F.normalize(q, dim=-1) * (self.head_dim ** 0.5)
+        k = F.normalize(k, dim=-1) * (self.head_dim ** 0.5)
+
+        # Apply RoPE
+        pos = torch.arange(T, device=x.device).view(-1, 1)
+        div = torch.exp(torch.arange(0, self.head_dim, 2, device=x.device).float() * (-math.log(10000.0) / self.head_dim))
+        freqs = (pos * div).view(1, 1, T, -1)
+        q_1, q_2 = q.chunk(2, dim=-1)
+        k_1, k_2 = k.chunk(2, dim=-1)
+        q = torch.cat([q_1 * freqs.cos() - q_2 * freqs.sin(), q_2 * freqs.cos() + q_1 * freqs.sin()], dim=-1)
+        k = torch.cat([k_1 * freqs.cos() - k_2 * freqs.sin(), k_2 * freqs.cos() + k_1 * freqs.sin()], dim=-1)
+
+        # Use PyTorch scaled dot product attention (flash attention when available)
         y = F.scaled_dot_product_attention(
             q, k, v, is_causal=True, dropout_p=self.attn_dropout.p if self.training else 0.0
         )
@@ -104,8 +122,8 @@ class TransformerBlock(nn.Module):
     def __init__(self, dim, n_heads, dropout_rate=0.0):
         super().__init__()
         self.ln1 = RMSNorm(dim)
-        self.attn = CausalSelfAttention(dim, n_heads, dropout_rate)
         self.ln2 = RMSNorm(dim)
+        self.attn = CausalSelfAttention(dim, n_heads, dropout_rate)
         self.mlp = SwiGLU(dim, dropout_rate=dropout_rate)
 
     def forward(self, x):
@@ -118,20 +136,21 @@ class TinyTransformer(nn.Module):
     def __init__(self, vocab_size):
         super().__init__()
         self.token_emb = nn.Embedding(vocab_size, n_embd)
-        self.pos_emb = nn.Embedding(block_size, n_embd)
         self.drop = nn.Dropout(dropout)
         self.blocks = nn.ModuleList(
             [TransformerBlock(n_embd, n_head, dropout) for _ in range(n_layer)]
         )
         self.ln_f = RMSNorm(n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size, bias=False)
-        # Weight tying
-        self.token_emb.weight = self.lm_head.weight
+        # Untied weights
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            std = 0.02
+            if hasattr(module, 'SCALE_INIT'):
+                std *= (2 * n_layer) ** -0.5
+            torch.nn.init.normal_(module.weight, mean=0.0, std=std)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
@@ -141,8 +160,7 @@ class TinyTransformer(nn.Module):
         B, T = idx.shape
         assert T <= block_size, f"Sequence length {T} exceeds block_size {block_size}"
         tok_emb = self.token_emb(idx)
-        pos_emb = self.pos_emb(torch.arange(T, device=idx.device))
-        x = self.drop(tok_emb + pos_emb)
+        x = self.drop(tok_emb)
         for block in self.blocks:
             x = block(x)
         x = self.ln_f(x)
@@ -171,12 +189,16 @@ def get_batch(data, device):
 
 # === TRAINING === (MUTABLE - optimizer, schedule)
 def get_lr(step):
-    """Cosine learning rate schedule with warmup."""
+    """WSD learning rate schedule."""
     if step < warmup_steps:
         return learning_rate * (step + 1) / warmup_steps
     if step >= max_steps:
         return learning_rate * 0.1
-    decay_ratio = (step - warmup_steps) / (max_steps - warmup_steps)
+    decay_steps = int(max_steps * 0.2)
+    stable_steps = max_steps - warmup_steps - decay_steps
+    if step < warmup_steps + stable_steps:
+        return learning_rate
+    decay_ratio = (step - warmup_steps - stable_steps) / decay_steps
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
     return learning_rate * 0.1 + coeff * (learning_rate - learning_rate * 0.1)
 # === END TRAINING ===
@@ -223,11 +245,15 @@ def main():
     num_params = model.count_params()
 
     # Optimizer
+    decay_params = [p for p in model.parameters() if p.dim() >= 2]
+    nodecay_params = [p for p in model.parameters() if p.dim() < 2]
     optimizer = torch.optim.AdamW(
-        model.parameters(),
+        [
+            {"params": decay_params, "weight_decay": weight_decay},
+            {"params": nodecay_params, "weight_decay": 0.0}
+        ],
         lr=learning_rate,
         betas=(beta1, beta2),
-        weight_decay=weight_decay,
     )
 
     # Training loop

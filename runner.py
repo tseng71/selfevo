@@ -207,11 +207,18 @@ def run_single_experiment(require_approval=False):
     verdict = judge(train_result, baseline_result)
 
     # Step 5: Update baseline or rollback
+    latest_ckpt = PROJECT_DIR / "_latest_checkpoint.pt"
     if verdict["verdict"] == "keep":
         shutil.copy2(MUTABLE_SCRIPT, BASELINE_SCRIPT)
+        # Copy checkpoint for playground
+        if latest_ckpt.exists():
+            shutil.copy2(latest_ckpt, PROJECT_DIR / "checkpoint.pt")
     else:
         # Rollback: restore baseline
         shutil.copy2(BASELINE_SCRIPT, MUTABLE_SCRIPT)
+    # Clean up temp checkpoint
+    if latest_ckpt.exists():
+        latest_ckpt.unlink()
 
     # Step 6: Write memory
     record = {

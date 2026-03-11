@@ -18,22 +18,22 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # === CONFIG === (MUTABLE)
-n_layer = 6
-n_head = 2
+n_layer = 4
+n_head = 4
 n_embd = 128
 block_size = 256
-dropout = 0.02
+dropout = 0.1
 bias = False
 
-learning_rate = 1e-3
-weight_decay = 0.01
+learning_rate = 3e-4
+weight_decay = 0.1
 beta1 = 0.9
-beta2 = 0.999
-grad_clip = 0.3
+beta2 = 0.95
+grad_clip = 1.0
 
-batch_size = 96
-gradient_accumulation_steps = 2
-warmup_steps = 150
+batch_size = 32
+gradient_accumulation_steps = 1
+warmup_steps = 50
 max_steps = 500
 
 eval_interval = 50
@@ -61,14 +61,12 @@ class RMSNorm(nn.Module):
 
 
 class SwiGLU(nn.Module):
-    def __init__(self, dim, hidden_dim=None, dropout_rate=0.0):
+    def __init__(self, dim, hidden_dim=None, dropout_rate=0.0, bias=False):
         super().__init__()
         hidden_dim = hidden_dim or int(dim * 8 / 3)
-        # Round to nearest multiple of 8 for efficiency
-        hidden_dim = ((hidden_dim + 7) // 8) * 8
+        hidden_dim = ((hidden_dim + 31) // 32) * 32
         self.w1 = nn.Linear(dim, hidden_dim, bias=bias)
         self.w2 = nn.Linear(hidden_dim, dim, bias=bias)
-        self.w2.SCALE_INIT = True
         self.w3 = nn.Linear(dim, hidden_dim, bias=bias)
         self.dropout = nn.Dropout(dropout_rate)
 
@@ -77,14 +75,13 @@ class SwiGLU(nn.Module):
 
 
 class CausalSelfAttention(nn.Module):
-    def __init__(self, dim, n_heads, dropout_rate=0.0):
+    def __init__(self, dim, n_heads, dropout_rate=0.0, bias=False):
         super().__init__()
         assert dim % n_heads == 0
         self.n_heads = n_heads
         self.head_dim = dim // n_heads
         self.qkv = nn.Linear(dim, 3 * dim, bias=bias)
         self.out_proj = nn.Linear(dim, dim, bias=bias)
-        self.out_proj.SCALE_INIT = True
         self.attn_dropout = nn.Dropout(dropout_rate)
         self.resid_dropout = nn.Dropout(dropout_rate)
 
@@ -96,11 +93,6 @@ class CausalSelfAttention(nn.Module):
         k = k.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
 
-        # Fast QK-Norm to stabilize attention
-        q = F.normalize(q, dim=-1) * (self.head_dim ** 0.5)
-        k = F.normalize(k, dim=-1) * (self.head_dim ** 0.5)
-
-        # Use PyTorch scaled dot product attention (flash attention when available)
         y = F.scaled_dot_product_attention(
             q, k, v, is_causal=True, dropout_p=self.attn_dropout.p if self.training else 0.0
         )
@@ -126,6 +118,7 @@ class TinyTransformer(nn.Module):
     def __init__(self, vocab_size):
         super().__init__()
         self.token_emb = nn.Embedding(vocab_size, n_embd)
+        self.pos_emb = nn.Embedding(block_size, n_embd)
         self.drop = nn.Dropout(dropout)
         self.blocks = nn.ModuleList(
             [TransformerBlock(n_embd, n_head, dropout) for _ in range(n_layer)]
@@ -138,10 +131,7 @@ class TinyTransformer(nn.Module):
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
-            std = 0.02
-            if hasattr(module, 'SCALE_INIT'):
-                std *= (2 * n_layer) ** -0.5
-            torch.nn.init.normal_(module.weight, mean=0.0, std=std)
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
@@ -151,12 +141,8 @@ class TinyTransformer(nn.Module):
         B, T = idx.shape
         assert T <= block_size, f"Sequence length {T} exceeds block_size {block_size}"
         tok_emb = self.token_emb(idx)
-        pos = torch.arange(T, device=idx.device).unsqueeze(1).float()
-        div = torch.exp(torch.arange(0, n_embd, 2, device=idx.device).float() * (-math.log(10000.0) / n_embd))
-        pos_emb = torch.zeros(T, n_embd, device=idx.device)
-        pos_emb[:, 0::2] = torch.sin(pos * div)
-        pos_emb[:, 1::2] = torch.cos(pos * div)
-        x = self.drop(tok_emb + pos_emb * 0.02)
+        pos_emb = self.pos_emb(torch.arange(T, device=idx.device))
+        x = self.drop(tok_emb + pos_emb)
         for block in self.blocks:
             x = block(x)
         x = self.ln_f(x)
@@ -185,16 +171,12 @@ def get_batch(data, device):
 
 # === TRAINING === (MUTABLE - optimizer, schedule)
 def get_lr(step):
-    """WSD learning rate schedule."""
+    """Cosine learning rate schedule with warmup."""
     if step < warmup_steps:
         return learning_rate * (step + 1) / warmup_steps
     if step >= max_steps:
         return learning_rate * 0.1
-    decay_steps = int(max_steps * 0.2)
-    stable_steps = max_steps - warmup_steps - decay_steps
-    if step < warmup_steps + stable_steps:
-        return learning_rate
-    decay_ratio = (step - warmup_steps - stable_steps) / decay_steps
+    decay_ratio = (step - warmup_steps) / (max_steps - warmup_steps)
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
     return learning_rate * 0.1 + coeff * (learning_rate - learning_rate * 0.1)
 # === END TRAINING ===
@@ -241,15 +223,11 @@ def main():
     num_params = model.count_params()
 
     # Optimizer
-    decay_params = [p for p in model.parameters() if p.dim() >= 2]
-    nodecay_params = [p for p in model.parameters() if p.dim() < 2]
     optimizer = torch.optim.AdamW(
-        [
-            {"params": decay_params, "weight_decay": weight_decay},
-            {"params": nodecay_params, "weight_decay": 0.0}
-        ],
+        model.parameters(),
         lr=learning_rate,
         betas=(beta1, beta2),
+        weight_decay=weight_decay,
     )
 
     # Training loop
@@ -321,6 +299,11 @@ def main():
         best_val_loss = min(best_val_loss, val_loss)
 
     # === OUTPUT === (IMMUTABLE SCHEMA)
+    # Save checkpoint for playground (always save, runner decides whether to keep it)
+    _ckpt_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_latest_checkpoint.pt")
+    if status == "ok":
+        torch.save(model.state_dict(), _ckpt_path)
+
     result = {
         "val_loss": round(best_val_loss, 6) if best_val_loss != float("inf") else None,
         "train_time_sec": round(train_time, 2),

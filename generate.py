@@ -61,8 +61,16 @@ def generate(model, tokenizer, prompt, max_new_tokens=200, temperature=0.8, top_
     encoded = tokenizer.encode(prompt)
     ids = encoded.ids
 
-    # Get block_size from model
-    block_size = model.pos_emb.weight.shape[0]
+    # Get block_size from the baseline module config
+    import importlib.util
+    baseline_code = BASELINE_SCRIPT.read_text()
+    ns = {}
+    # Extract block_size from config
+    for line in baseline_code.split('\n'):
+        if line.strip().startswith('block_size'):
+            exec(line.strip(), ns)
+            break
+    block_size = ns.get('block_size', 256)
 
     x = torch.tensor([ids], dtype=torch.long, device=device)
 

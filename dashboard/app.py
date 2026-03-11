@@ -410,7 +410,10 @@ def generate_text(request: dict):
     try:
         encoded = tokenizer.encode(prompt)
         ids = encoded.ids
-        block_size = model.pos_emb.weight.shape[0]
+        # Get block_size from baseline config (model may not have pos_emb anymore)
+        import re as _re
+        _bs_match = _re.search(r"^block_size\s*=\s*(\d+)", BASELINE_SCRIPT.read_text(), _re.MULTILINE)
+        block_size = int(_bs_match.group(1)) if _bs_match else 256
 
         x = torch.tensor([ids], dtype=torch.long, device=device)
         generated_ids = list(ids)
@@ -452,32 +455,81 @@ def generate_text(request: dict):
 
 @app.post("/api/retrain")
 def retrain_model():
-    """Retrain the model from the current baseline and save a new checkpoint."""
+    """Retrain the model using baseline script and save checkpoint."""
     import subprocess
+    import torch
     ckpt_path = PROJECT_DIR / "checkpoint.pt"
 
-    # Delete old checkpoint to force retrain
+    # Delete old checkpoint and clear cache
     if ckpt_path.exists():
         ckpt_path.unlink()
-
-    # Clear cache
     _model_cache["model"] = None
 
-    # Run generate.py to create checkpoint (it auto-trains if no checkpoint)
+    # Run baseline/mutable_train.py which outputs JSON result,
+    # then save model state_dict by loading the trained model
     try:
+        # Step 1: Train by running the baseline script directly
         result = subprocess.run(
-            [sys.executable, str(PROJECT_DIR / "generate.py"),
-             "--prompt", "test", "--num", "1", "--tokens", "1"],
-            capture_output=True, text=True, timeout=300,
+            [sys.executable, str(BASELINE_SCRIPT)],
+            capture_output=True, text=True, timeout=1800,
             cwd=str(PROJECT_DIR),
         )
-        if ckpt_path.exists():
-            return {"ok": True, "message": "Model retrained and checkpoint saved"}
-        return {"ok": False, "error": result.stderr[-500:] if result.stderr else "Unknown error"}
-    except subprocess.TimeoutExpired:
-        return {"ok": False, "error": "Training timed out"}
+
+        # Step 2: Rebuild model with current architecture and train to save checkpoint
+        baseline_code = BASELINE_SCRIPT.read_text()
+        mod_dict = {"__file__": str(BASELINE_SCRIPT), "__name__": "retrain_module"}
+        exec(compile(baseline_code, str(BASELINE_SCRIPT), "exec"), mod_dict)
+
+        with open(DATA_DIR / "meta.json") as f:
+            meta = json.load(f)
+
+        # Build and train
+        model = mod_dict["TinyTransformer"](meta["vocab_size"])
+        device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
+        import numpy as np
+        train_data = np.memmap(str(DATA_DIR / "train.bin"), dtype=np.uint16, mode="r")
+        model = model.to(device)
+        model.train()
+
+        max_steps = mod_dict.get("max_steps", 500)
+        batch_size = mod_dict.get("batch_size", 32)
+        block_size_val = mod_dict.get("block_size", 256)
+        grad_accum = mod_dict.get("gradient_accumulation_steps", 1)
+        grad_clip_val = mod_dict.get("grad_clip", 1.0)
+        get_lr = mod_dict["get_lr"]
+
+        # Build optimizer same as baseline
+        decay_params = [p for p in model.parameters() if p.dim() >= 2]
+        nodecay_params = [p for p in model.parameters() if p.dim() < 2]
+        optimizer = torch.optim.AdamW([
+            {"params": decay_params, "weight_decay": float(mod_dict.get("weight_decay", 0.1))},
+            {"params": nodecay_params, "weight_decay": 0.0}
+        ], lr=float(mod_dict.get("learning_rate", 1e-3)),
+           betas=(float(mod_dict.get("beta1", 0.9)), float(mod_dict.get("beta2", 0.95))))
+
+        import math
+        for step in range(max_steps):
+            lr_val = get_lr(step)
+            for pg in optimizer.param_groups:
+                pg["lr"] = lr_val
+            optimizer.zero_grad()
+            for _ in range(grad_accum):
+                ix = torch.randint(len(train_data) - block_size_val - 1, (batch_size,))
+                x = torch.stack([torch.from_numpy(train_data[i:i+block_size_val].astype(np.int64)) for i in ix]).to(device)
+                y = torch.stack([torch.from_numpy(train_data[i+1:i+1+block_size_val].astype(np.int64)) for i in ix]).to(device)
+                logits = model(x)
+                loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1)) / grad_accum
+                loss.backward()
+            if grad_clip_val > 0:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip_val)
+            optimizer.step()
+
+        torch.save(model.state_dict(), str(ckpt_path))
+        return {"ok": True, "message": f"Model retrained ({max_steps} steps) and checkpoint saved"}
+
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": str(e)[:500]}
 
 
 @app.get("/api/model_info")

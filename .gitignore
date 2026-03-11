@@ -15,6 +15,7 @@ build/
 memory.jsonl
 state.json
 checkpoint.pt
+_latest_checkpoint.pt
 
 # macOS
 .DS_Store
