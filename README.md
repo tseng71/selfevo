@@ -99,8 +99,8 @@ The optimization target is a **tiny decoder-only Transformer** — the same arch
 
 | Parameter | Default Value |
 |-----------|--------------|
-| Layers | 6 |
-| Attention heads | 2 |
+| Layers | 4 |
+| Attention heads | 4 |
 | Embedding dimension | 128 |
 | Context length | 256 tokens |
 | Training budget | 500 steps per experiment |
