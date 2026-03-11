@@ -22,16 +22,16 @@ n_layer = 4
 n_head = 4
 n_embd = 128
 block_size = 256
-dropout = 0.1
+dropout = 0.0
 bias = False
 
-learning_rate = 3e-4
-weight_decay = 0.1
+learning_rate = 1e-3
+weight_decay = 0.01
 beta1 = 0.9
 beta2 = 0.95
 grad_clip = 1.0
 
-batch_size = 32
+batch_size = 64
 gradient_accumulation_steps = 1
 warmup_steps = 50
 max_steps = 500

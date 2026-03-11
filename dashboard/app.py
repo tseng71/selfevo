@@ -28,6 +28,23 @@ STATIC_DIR = Path(__file__).parent / "static"
 app = FastAPI(title="SelfEvo Dashboard")
 
 
+@app.on_event("startup")
+def load_saved_api_keys():
+    """Load API keys from state.json into environment on startup."""
+    state = load_state()
+    saved_keys = state.get("api_keys", {})
+    key_map = {
+        "gemini": "GEMINI_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "claude": "ANTHROPIC_API_KEY",
+    }
+    for provider, env_name in key_map.items():
+        if provider in saved_keys and saved_keys[provider]:
+            if not os.environ.get(env_name):
+                os.environ[env_name] = saved_keys[provider]
+                print(f"[dashboard] Loaded {provider} API key from state.json")
+
+
 def load_memory():
     """Load all experiment records."""
     if not MEMORY_PATH.exists():
@@ -334,24 +351,66 @@ def get_ai_config():
     """Get current AI provider/model configuration."""
     import os as _os
     state = load_state()
-    # Detect which keys are available
+    saved_keys = state.get("api_keys", {})
+
+    key_map = {
+        "gemini": "GEMINI_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "claude": "ANTHROPIC_API_KEY",
+    }
+
     available = []
-    if _os.environ.get("GEMINI_API_KEY"):
-        available.append("gemini")
-    if _os.environ.get("OPENAI_API_KEY"):
-        available.append("openai")
-    if _os.environ.get("ANTHROPIC_API_KEY"):
-        available.append("claude")
+    key_sources = {}
+    for provider, env_name in key_map.items():
+        if _os.environ.get(env_name):
+            available.append(provider)
+            # Determine source: dashboard-saved vs environment
+            if saved_keys.get(provider) and saved_keys[provider] == _os.environ.get(env_name):
+                key_sources[provider] = "dashboard"
+            else:
+                key_sources[provider] = "env"
+
     return {
         "available_providers": available,
         "current_provider": state.get("ai_provider"),
         "current_model": state.get("ai_model"),
         "defaults": {
-            "gemini": "gemini-2.5-pro",
-            "openai": "gpt-4.1",
-            "claude": "claude-opus-4-20250514",
+            "gemini": "gemini-3.1-pro-preview",
+            "openai": "gpt-5.4",
+            "claude": "claude-opus-4-6",
         },
+        "key_sources": key_sources,
     }
+
+
+@app.post("/api/save_key")
+def save_api_key(data: dict):
+    """Save an API key from the dashboard UI."""
+    provider = data.get("provider", "")
+    key = data.get("key", "").strip()
+    if not provider or not key:
+        raise HTTPException(status_code=400, detail="Missing provider or key")
+
+    key_map = {
+        "gemini": "GEMINI_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "claude": "ANTHROPIC_API_KEY",
+    }
+    env_name = key_map.get(provider)
+    if not env_name:
+        raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}")
+
+    # Set in environment for immediate use
+    os.environ[env_name] = key
+
+    # Persist in state.json
+    state = load_state()
+    if "api_keys" not in state:
+        state["api_keys"] = {}
+    state["api_keys"][provider] = key
+    save_state(state)
+
+    return {"ok": True, "message": f"{provider} API key saved"}
 
 
 # === Text Generation (Playground) ===

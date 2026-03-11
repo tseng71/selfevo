@@ -1,15 +1,15 @@
 """
 SelfEvo - Policy Module (v2: AI-Powered)
 Uses AI (Gemini / OpenAI / Claude) to analyze experiment history and generate
-intelligent code modifications. Falls back to heuristic rules if no API is available.
+intelligent code modifications. Falls back to heuristic rules if no API key is set.
 
-Supported providers (set via environment variable):
-  - GEMINI_API_KEY  → Google Gemini
-  - OPENAI_API_KEY  → OpenAI (GPT-4o / GPT-5.4 etc.)
-  - ANTHROPIC_API_KEY → Anthropic Claude (Opus 4.6 etc.)
+Supported providers:
+  - Google Gemini  (default: gemini-3.1-pro-preview)
+  - OpenAI         (default: gpt-5.4)
+  - Anthropic Claude (default: claude-opus-4-6)
 
+API keys and model selection are configured via the dashboard Control page.
 If multiple keys are set, priority: Gemini > OpenAI > Claude.
-Override with AI_PROVIDER=gemini|openai|claude.
 """
 
 import json
@@ -97,9 +97,9 @@ def detect_phase(history):
 
 # Provider config: (env_var, default_model)
 AI_PROVIDERS = {
-    "gemini":   ("GEMINI_API_KEY",    "gemini-2.5-pro"),
-    "openai":   ("OPENAI_API_KEY",    "gpt-4.1"),
-    "claude":   ("ANTHROPIC_API_KEY", "claude-opus-4-20250514"),
+    "gemini":   ("GEMINI_API_KEY",    "gemini-3.1-pro-preview"),
+    "openai":   ("OPENAI_API_KEY",    "gpt-5.4"),
+    "claude":   ("ANTHROPIC_API_KEY", "claude-opus-4-6"),
 }
 
 # Allow user to override model name: AI_MODEL=gpt-5.4 etc.
@@ -120,8 +120,33 @@ def _load_ai_settings_from_state():
         return None, None
 
 
+def _provider_from_model(model_name):
+    """Infer the provider from a model name."""
+    if not model_name:
+        return None
+    m = model_name.lower()
+    if m.startswith("gemini"):
+        return "gemini"
+    if m.startswith(("gpt", "o3", "o4", "o1")):
+        return "openai"
+    if m.startswith("claude"):
+        return "claude"
+    return None
+
+
 def _detect_provider():
-    """Detect which AI provider to use. Priority: env var > state.json > auto-detect."""
+    """Detect which AI provider to use. Priority: model name > env var > state.json > auto-detect."""
+    # 0. If a specific model is set, derive provider from model name
+    _, state_model = _load_ai_settings_from_state()
+    env_model = os.environ.get(AI_MODEL_ENV, "").strip()
+    chosen_model = env_model or state_model
+    if chosen_model:
+        derived = _provider_from_model(chosen_model)
+        if derived:
+            env_var, _ = AI_PROVIDERS[derived]
+            if os.environ.get(env_var):
+                return derived
+
     # 1. Explicit env var
     forced = os.environ.get(AI_PROVIDER_ENV, "").lower().strip()
     if forced and forced in AI_PROVIDERS:
@@ -130,14 +155,7 @@ def _detect_provider():
             return forced
         print(f"[policy] AI_PROVIDER={forced} but {env_var} not set, trying others...")
 
-    # 2. Dashboard setting (state.json)
-    state_provider, _ = _load_ai_settings_from_state()
-    if state_provider and state_provider in AI_PROVIDERS:
-        env_var, _ = AI_PROVIDERS[state_provider]
-        if os.environ.get(env_var):
-            return state_provider
-
-    # 3. Auto-detect by priority
+    # 2. Auto-detect by key availability
     for provider in ["gemini", "openai", "claude"]:
         env_var, _ = AI_PROVIDERS[provider]
         if os.environ.get(env_var):

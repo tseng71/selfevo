@@ -82,7 +82,7 @@ async function loadOverview() {
         running: `Experiment loop is running... (${status.total_experiments} experiments completed)`,
         training: `Training experiment in progress... (${status.total_experiments} completed)`,
         paused: `Experiment loop is paused. (${status.total_experiments} experiments completed)`,
-        idle: `Experiment loop is idle. Click Start in Control to begin.`,
+        idle: `Experiment loop is idle.`,
         error: `Error occurred. Check Control page for details.`,
     };
     bannerText.textContent = statusMessages[status.status] || `Status: ${status.status}`;
@@ -420,21 +420,6 @@ function updateControlButtons(status) {
             overviewBtn.className = 'btn btn-sm btn-success';
         }
     }
-
-    // Control page toggle button
-    const controlBtn = document.getElementById('control-toggle-btn');
-    if (controlBtn) {
-        if (isRunning) {
-            controlBtn.textContent = '⏸ Pause';
-            controlBtn.className = 'btn btn-warning';
-        } else if (isPaused) {
-            controlBtn.textContent = '▶ Resume';
-            controlBtn.className = 'btn btn-success';
-        } else {
-            controlBtn.textContent = '▶ Start';
-            controlBtn.className = 'btn btn-success';
-        }
-    }
 }
 
 async function updateSettings() {
@@ -447,45 +432,100 @@ async function updateSettings() {
     showToast('Settings updated');
 }
 
-// AI Provider settings
+// AI Model settings
+const ALL_MODELS = [
+    { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro', provider: 'gemini' },
+    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', provider: 'gemini' },
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'gemini' },
+    { value: 'gpt-5.4', label: 'GPT-5.4', provider: 'openai' },
+    { value: 'gpt-5.4-pro', label: 'GPT-5.4 Pro', provider: 'openai' },
+    { value: 'gpt-4.1', label: 'GPT-4.1', provider: 'openai' },
+    { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini', provider: 'openai' },
+    { value: 'o4-mini', label: 'o4-mini', provider: 'openai' },
+    { value: 'claude-opus-4-6', label: 'Claude Opus 4.6', provider: 'claude' },
+    { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4', provider: 'claude' },
+];
+
+const PROVIDER_LABELS = { gemini: 'Google Gemini', openai: 'OpenAI', claude: 'Anthropic Claude' };
+
+function populateModelSelect(availableProviders, currentModel) {
+    const select = document.getElementById('setting-ai-model');
+    if (!select) return;
+    select.innerHTML = '<option value="">Auto-detect (default)</option>';
+
+    const groups = {};
+    ALL_MODELS.forEach(m => {
+        if (!groups[m.provider]) groups[m.provider] = [];
+        groups[m.provider].push(m);
+    });
+
+    for (const [provider, models] of Object.entries(groups)) {
+        const optgroup = document.createElement('optgroup');
+        const hasKey = availableProviders.includes(provider);
+        optgroup.label = PROVIDER_LABELS[provider] || provider;
+        if (!hasKey) optgroup.label += ' (no key)';
+
+        models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.value;
+            opt.textContent = m.label;
+            if (!hasKey) { opt.disabled = true; opt.textContent += ' (no key)'; }
+            if (m.value === currentModel) opt.selected = true;
+            optgroup.appendChild(opt);
+        });
+        select.appendChild(optgroup);
+    }
+}
+
 async function loadAIConfig() {
     try {
         const config = await apiGet('/api/ai_config');
-        const providerSelect = document.getElementById('setting-ai-provider');
-        const modelInput = document.getElementById('setting-ai-model');
-        const providerHint = document.getElementById('ai-provider-hint');
-        const modelHint = document.getElementById('ai-model-hint');
 
-        // Mark available providers
-        Array.from(providerSelect.options).forEach(opt => {
-            if (opt.value && !config.available_providers.includes(opt.value)) {
-                opt.textContent = opt.textContent.replace(' (no key)', '') + ' (no key)';
-                opt.disabled = true;
-            } else if (opt.value) {
-                opt.disabled = false;
-                opt.textContent = opt.textContent.replace(' (no key)', '');
+        // Populate model dropdown
+        populateModelSelect(config.available_providers, config.current_model || '');
+
+        // Model hint
+        const modelHint = document.getElementById('ai-model-hint');
+        if (modelHint) {
+            const active = config.available_providers[0] || 'none';
+            const defaultModel = config.defaults[active] || '';
+            modelHint.textContent = defaultModel ? `Default: ${defaultModel}` : 'No API key set';
+        }
+
+        // API key status hints
+        ['gemini', 'openai', 'claude'].forEach(p => {
+            const hint = document.getElementById('key-' + p + '-hint');
+            if (hint) {
+                const source = (config.key_sources || {})[p];
+                if (source) {
+                    hint.textContent = '✓ Configured';
+                    hint.style.color = 'var(--green)';
+                } else {
+                    hint.textContent = 'Not configured';
+                    hint.style.color = 'var(--text-muted)';
+                }
             }
         });
-
-        // Set current values
-        providerSelect.value = config.current_provider || '';
-        modelInput.value = config.current_model || '';
-
-        // Hints
-        const active = config.current_provider || config.available_providers[0] || 'none';
-        const defaultModel = config.defaults[active] || '';
-        providerHint.textContent = config.available_providers.length
-            ? `Available: ${config.available_providers.join(', ')}`
-            : 'No API key set';
-        modelHint.textContent = defaultModel ? `Default: ${defaultModel}` : '';
     } catch (e) {}
 }
 
 async function updateAISettings() {
-    const provider = document.getElementById('setting-ai-provider').value;
-    const model = document.getElementById('setting-ai-model').value.trim();
-    await apiPost('/api/settings', { ai_provider: provider, ai_model: model });
-    showToast('AI settings updated');
+    const model = document.getElementById('setting-ai-model').value;
+    await apiPost('/api/settings', { ai_model: model });
+    showToast('AI model updated');
+    loadAIConfig();
+}
+
+async function saveApiKey(provider) {
+    const input = document.getElementById('key-' + provider);
+    const key = input ? input.value.trim() : '';
+    if (!key) {
+        showToast('Please enter an API key');
+        return;
+    }
+    await apiPost('/api/save_key', { provider, key });
+    input.value = '';
+    showToast(provider.charAt(0).toUpperCase() + provider.slice(1) + ' API key saved');
     loadAIConfig();
 }
 

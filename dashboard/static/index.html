@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SelfEvo Dashboard</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=5">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -57,6 +57,7 @@
                 <div class="banner-controls">
                     <button class="btn btn-sm" id="overview-toggle-btn" onclick="toggleLoop()">Pause</button>
                     <button class="btn btn-sm btn-primary" id="overview-step-btn" onclick="controlAction('step')">Single Step</button>
+                    <button class="btn btn-sm btn-danger" onclick="controlAction('rollback')">Rollback to Best</button>
                 </div>
             </div>
 
@@ -164,11 +165,37 @@
         <!-- === Control Page === -->
         <div id="page-control" class="page">
             <div class="control-section">
-                <h3>Experiment Control</h3>
-                <div class="btn-group">
-                    <button class="btn btn-success" id="control-toggle-btn" onclick="toggleLoop()">Start</button>
-                    <button class="btn btn-primary" onclick="controlAction('step')">Single Step</button>
-                    <button class="btn btn-danger" onclick="controlAction('rollback')">Rollback to Best</button>
+                <h3>AI Model</h3>
+                <div class="setting-row">
+                    <label class="setting-label">Model</label>
+                    <select class="setting-select" id="setting-ai-model" onchange="updateAISettings()">
+                        <option value="">Auto-detect (default)</option>
+                    </select>
+                    <span class="setting-hint" id="ai-model-hint"></span>
+                </div>
+            </div>
+            <div class="control-section">
+                <h3>API Keys</h3>
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+                    You only need <strong>one</strong> API key — pick any provider below. Keys are stored locally and loaded automatically on restart.
+                </p>
+                <div class="setting-row">
+                    <label class="setting-label">Gemini</label>
+                    <input type="password" class="setting-input" id="key-gemini" placeholder="Enter Gemini API key">
+                    <span class="setting-hint" id="key-gemini-hint"></span>
+                    <button class="btn btn-sm" onclick="saveApiKey('gemini')">Save</button>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label">OpenAI</label>
+                    <input type="password" class="setting-input" id="key-openai" placeholder="Enter OpenAI API key">
+                    <span class="setting-hint" id="key-openai-hint"></span>
+                    <button class="btn btn-sm" onclick="saveApiKey('openai')">Save</button>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label">Claude</label>
+                    <input type="password" class="setting-input" id="key-claude" placeholder="Enter Anthropic API key">
+                    <span class="setting-hint" id="key-claude-hint"></span>
+                    <button class="btn btn-sm" onclick="saveApiKey('claude')">Save</button>
                 </div>
             </div>
             <div class="control-section">
@@ -176,24 +203,6 @@
                 <div class="btn-group">
                     <button class="btn" onclick="controlAction('lock')">Lock Baseline</button>
                     <button class="btn" onclick="controlAction('unlock')">Unlock Baseline</button>
-                </div>
-            </div>
-            <div class="control-section">
-                <h3>AI Provider</h3>
-                <div class="setting-row">
-                    <label class="setting-label">Provider</label>
-                    <select class="setting-select" id="setting-ai-provider" onchange="updateAISettings()">
-                        <option value="">Auto-detect</option>
-                        <option value="gemini">Google Gemini</option>
-                        <option value="openai">OpenAI</option>
-                        <option value="claude">Anthropic Claude</option>
-                    </select>
-                    <span class="setting-hint" id="ai-provider-hint"></span>
-                </div>
-                <div class="setting-row">
-                    <label class="setting-label">Model</label>
-                    <input type="text" class="setting-input" id="setting-ai-model" placeholder="Leave empty for default" onchange="updateAISettings()">
-                    <span class="setting-hint" id="ai-model-hint"></span>
                 </div>
             </div>
             <div class="control-section">
@@ -274,6 +283,6 @@
     <!-- Toast -->
     <div class="toast" id="toast"></div>
 
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=5"></script>
 </body>
 </html>

@@ -45,28 +45,7 @@ cd selfevo
 pip install -r requirements.txt
 ```
 
-### 2. Set up your AI API key
-
-The AI policy module supports **three providers** — set any one:
-
-| Provider | Env Variable | Default Model | Get a Key |
-|----------|-------------|---------------|-----------|
-| Google Gemini | `GEMINI_API_KEY` | gemini-2.5-pro | [aistudio.google.com](https://aistudio.google.com/apikey) |
-| OpenAI | `OPENAI_API_KEY` | gpt-4.1 | [platform.openai.com](https://platform.openai.com/api-keys) |
-| Anthropic Claude | `ANTHROPIC_API_KEY` | claude-opus-4-20250514 | [console.anthropic.com](https://console.anthropic.com/) |
-
-```bash
-# Pick one:
-export GEMINI_API_KEY="your-key"
-export OPENAI_API_KEY="your-key"
-export ANTHROPIC_API_KEY="your-key"
-```
-
-If multiple keys are set, priority is Gemini → OpenAI → Claude. You can also switch the provider and model from the dashboard **Control** page, or override via environment variables: `AI_PROVIDER=openai` and `AI_MODEL=gpt-4.1`.
-
-Without any API key, the system falls back to built-in heuristic mutations.
-
-### 3. Prepare data
+### 2. Prepare data
 
 ```bash
 python prepare.py
@@ -74,7 +53,7 @@ python prepare.py
 
 This downloads TinyStories, trains a BPE tokenizer, and creates cached binary files.
 
-### 4. Run
+### 3. Run
 
 ```bash
 python main.py
@@ -82,11 +61,28 @@ python main.py
 
 Then open the dashboard URL shown in the terminal (default: http://localhost:8000).
 
-The experiment loop starts automatically. Use the controls on the dashboard **Overview** page to:
+### 4. Set up your AI API key
 
-- **Pause** — stop the loop after the current experiment finishes
-- **Resume** — continue the loop
+In the dashboard, go to **Control** page → **API Keys**, enter an API key for **any one** of the supported providers — you only need one:
+
+| Provider | Default Model | Get a Key |
+|----------|---------------|-----------|
+| Google Gemini | gemini-3.1-pro-preview | [aistudio.google.com](https://aistudio.google.com/apikey) |
+| OpenAI | gpt-5.4 | [platform.openai.com](https://platform.openai.com/api-keys) |
+| Anthropic Claude | claude-opus-4-6 | [console.anthropic.com](https://console.anthropic.com/) |
+
+Keys are stored locally and loaded automatically on restart. You can switch models from the **AI Model** dropdown.
+
+Without any API key, the system falls back to built-in heuristic mutations (no AI provider needed).
+
+### 5. Start experimenting
+
+Use the controls on the dashboard **Overview** page:
+
+- **Start / Resume** — start the experiment loop
+- **Pause** — stop after the current experiment finishes
 - **Single Step** — run exactly one experiment, then pause
+- **Rollback to Best** — revert to the best known baseline
 
 You can also run with flags:
 
