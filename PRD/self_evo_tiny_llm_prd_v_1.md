@@ -1,312 +1,312 @@
-# SelfEvo Tiny LLM 自我进化系统 PRD v1.0
+# SelfEvo Tiny LLM Self-Evolving System PRD v1.0
 
-## 1. 文档信息
+## 1. Document Information
 
-**产品名称**：SelfEvo  
-**版本**：v1.0  
-**文档类型**：产品需求文档（PRD）  
-**目标平台**：Apple Silicon iMac（M 系列）本地运行  
-**目标用户**：希望通过可视化方式观察和控制“自我进化训练实验”的非编程/弱编程用户  
-
----
-
-## 2. 一句话定义
-
-SelfEvo 是一套运行在 M 系列 iMac 上的本地自我进化实验系统：它围绕一个微型文本 LLM 训练脚本 `mutable_train.py`，自动提出改动、执行固定预算训练、比较验证结果、保留优胜版本、回滚退化版本，并通过本地可视化数据面板向用户展示实验进展、关键指标、版本变化和人工干预入口。
+**Product Name**: SelfEvo
+**Version**: v1.0
+**Document Type**: Product Requirements Document (PRD)
+**Target Platform**: Personal computers (macOS / Windows / Linux) — no dedicated GPU required
+**Target Users**: Non-programmers or light-programmers who want to observe and control a self-evolving training experiment through a visual interface
 
 ---
 
-## 3. 背景与问题定义
+## 2. One-Line Definition
 
-### 3.1 背景
-
-近期围绕 nanochat、autoresearch 等思路，已经出现一种清晰的研究自动化方向：
-
-- 将“AI 做研究”收缩成一个很小、很可验证的闭环；
-- 每轮只允许系统修改一个确定对象；
-- 在固定预算下运行；
-- 用固定指标比较优劣；
-- 变好则保留，变差则丢弃；
-- 积累实验记忆，再决定下一轮方向。
-
-这类系统之所以有价值，不在于它能立刻发明重大新理论，而在于它能够把“做小实验—快速反馈—积累经验”的机制自动化。
-
-### 3.2 当前问题
-
-现有关于“自我进化 agent / 多 agent 研究”的讨论，往往在正式开发前就陷入三个问题：
-
-1. **没有唯一优化对象**：到底要优化模型、提示词、路由器、评估器还是 agent 组织本身，不明确；
-2. **没有硬评测闭环**：系统能不断提出想法，但没有固定 benchmark 去证明这些改动是否真的有效；
-3. **没有本地可运行的规模**：很多方案默认 Linux + NVIDIA GPU，不适合直接在 M 系列 iMac 上验证。
-
-### 3.3 本项目的回答
-
-本项目 v1 不再发散，直接拍板为一个唯一方向：
-
-- **唯一优化对象**：`mutable_train.py`
-- **训练任务**：TinyStories 上的微型 decoder-only Transformer
-- **评估目标**：固定训练预算下最小化 `val_loss`（v1.1 可补 `val_bpb`）
-- **展示方式**：必须提供本地可视化数据面板，供不懂编程的用户观察与干预
+SelfEvo is a local self-evolving experiment system that runs on personal computers: it wraps a tiny text LLM training script `mutable_train.py`, automatically proposes modifications, runs fixed-budget training, compares validation results, keeps winning versions, rolls back regressions, and presents experiment progress, key metrics, version changes, and human intervention controls through a local visual dashboard.
 
 ---
 
-## 4. 产品目标
+## 3. Background and Problem Definition
 
-### 4.1 核心目标
+### 3.1 Background
 
-构建一个可在 Apple Silicon iMac 本地运行的最小闭环系统，使其可以：
+Inspired by ideas like nanochat and Andrej Karpathy's "autoresearch" concept, a clear direction for research automation has emerged:
 
-1. 自动修改微型训练脚本；
-2. 自动运行固定预算训练；
-3. 自动比较训练结果；
-4. 自动决定 keep / discard / rollback；
-5. 自动记录实验历史；
-6. 自动基于历史提出下一轮实验方向；
-7. 通过可视化面板向用户透明展示所有关键状态。
+- Narrow "AI doing research" down to a small, verifiable closed loop;
+- Each round, the system only modifies one well-defined target;
+- Run under a fixed budget;
+- Compare results using fixed metrics;
+- Keep improvements, discard regressions;
+- Accumulate experiment memory to inform the next round's direction.
 
-### 4.2 成功标准
+The value of such systems is not in inventing major new theories, but in automating the "run small experiments → get fast feedback → accumulate experience" mechanism.
 
-v1 成功的标准不是“训练出一个很强的 LLM”，而是：
+### 3.2 Current Problems
 
-- 本地可以稳定完成多轮实验；
-- 至少能形成 baseline 与若干改进/退化版本；
-- 能自动做保留/回滚判断；
-- 用户不看代码也能通过面板理解系统在做什么；
-- 用户能在关键节点进行人工干预。
+Existing discussions about "self-evolving agents / multi-agent research" often get stuck on three issues before development even begins:
 
-### 4.3 非目标
+1. **No single optimization target**: It's unclear whether to optimize the model, prompts, router, evaluator, or the agent organization itself;
+2. **No hard evaluation loop**: The system can endlessly propose ideas, but there's no fixed benchmark to prove whether changes are actually effective;
+3. **No locally runnable scale**: Many proposals assume Linux + NVIDIA GPU and cannot be verified directly on personal computers.
 
-v1 明确不追求：
+### 3.3 This Project's Answer
 
-- 大模型训练；
-- 公网多用户产品；
-- 多数据集多任务泛化；
-- 分布式训练；
-- 多 agent 异步大规模协作；
-- 让系统自行修改最高规则。
+This project's v1 makes a decisive commitment to one direction:
+
+- **Sole optimization target**: `mutable_train.py`
+- **Training task**: Tiny decoder-only Transformer on TinyStories
+- **Evaluation goal**: Minimize `val_loss` under a fixed training budget (v1.1 may add `val_bpb`)
+- **Presentation**: Must provide a local visual dashboard for non-programmers to observe and intervene
 
 ---
 
-## 5. 产品原则
+## 4. Product Goals
 
-### 5.1 唯一优化对象原则
+### 4.1 Core Goals
 
-v1 只优化 `mutable_train.py`。不得同时定义多个主要优化对象。
+Build a minimal closed-loop system that runs locally on personal computers, capable of:
 
-### 5.2 固定评测原则
+1. Automatically modifying the tiny training script;
+2. Automatically running fixed-budget training;
+3. Automatically comparing training results;
+4. Automatically deciding keep / discard / rollback;
+5. Automatically recording experiment history;
+6. Automatically proposing the next experiment direction based on history;
+7. Transparently presenting all key states to users through a visual dashboard.
 
-数据集、验证集、训练预算、评估逻辑必须固定，以保证实验可比。
+### 4.2 Success Criteria
 
-### 5.3 小步快跑原则
+The success criteria for v1 is not "training a strong LLM", but rather:
 
-优先短预算、小模型、小改动，让 M 系列 iMac 上也能获得足够快的反馈。
+- Being able to stably complete multiple experiment rounds locally;
+- Forming at least a baseline with several improved/regressed versions;
+- Being able to automatically make keep/rollback decisions;
+- Users can understand what the system is doing through the dashboard without reading code;
+- Users can intervene at critical points.
 
-### 5.4 可回滚原则
+### 4.3 Non-Goals
 
-任何失败或退化实验都必须能自动回滚到当前 baseline。
+v1 explicitly does not pursue:
 
-### 5.5 可见性优先原则
-
-本项目面向不懂编程的用户，所有关键状态、关键指标、关键决策都必须在本地可视化面板可见。
-
-### 5.6 规则高于策略原则
-
-系统可以修改训练脚本，但不能修改评估标准、验证数据和最高约束。
-
----
-
-## 6. 目标用户与使用场景
-
-### 6.1 目标用户
-
-- 想验证“自我进化训练系统”是否可行的个人研究者；
-- 不懂编程、但愿意通过图表和面板观察系统行为的用户；
-- 想用 Codex 搭建并维护代码仓库的开发者；
-- 希望在本地设备验证 AI 研究自动化原型的人。
-
-### 6.2 典型使用场景
-
-#### 场景 A：用户启动系统
-
-用户打开本地面板，点击“开始实验”，系统加载当前 baseline、读取历史记忆、自动开始下一轮实验。
-
-#### 场景 B：用户观察系统是否在进步
-
-用户在总览页看到当前最佳 `val_loss`、今日实验轮数、最近 10 轮结果、keep/discard/crash 比例与趋势图，从而判断系统是否真的在进步。
-
-#### 场景 C：用户干预高风险实验
-
-当系统计划做大改动时，面板提示“高风险实验待批准”，用户点击查看假设说明与预期影响，再选择批准或拒绝。
-
-#### 场景 D：用户回退到最佳版本
-
-系统连续多轮表现不佳时，用户在控制页点击“恢复到最佳版本”，系统自动切回 baseline。
+- Large model training;
+- Public multi-user product;
+- Multi-dataset, multi-task generalization;
+- Distributed training;
+- Multi-agent asynchronous large-scale collaboration;
+- Allowing the system to modify its own supreme rules.
 
 ---
 
-## 7. 产品范围
+## 5. Product Principles
 
-### 7.1 v1 必做范围
+### 5.1 Single Optimization Target Principle
 
-1. TinyStories 数据准备；
-2. 微型 decoder-only Transformer 训练脚本；
-3. 固定预算训练与验证；
-4. patch 计划生成；
-5. patch 应用；
-6. keep / discard / rollback 判断；
-7. 实验历史记录；
-8. 本地可视化数据面板；
-9. 人工控制入口；
-10. 适配 Apple Silicon iMac。
+v1 only optimizes `mutable_train.py`. Multiple primary optimization targets must not be defined simultaneously.
 
-### 7.2 v1 不做范围
+### 5.2 Fixed Evaluation Principle
 
-1. 公网部署；
-2. 复杂账户与权限系统；
-3. SaaS 多用户协作；
-4. 大规模分布式训练；
-5. 多分支并行实验图谱；
-6. 自动修改评估器；
-7. 自动修改最高规则；
-8. 手机端 App。
+The dataset, validation set, training budget, and evaluation logic must be fixed to ensure experiments are comparable.
+
+### 5.3 Small Steps, Fast Iteration Principle
+
+Prioritize short budgets, small models, and small changes so that personal computers can deliver sufficiently fast feedback.
+
+### 5.4 Rollback Principle
+
+Any failed or regressed experiment must be automatically rollable to the current baseline.
+
+### 5.5 Visibility-First Principle
+
+This project targets non-programmers; all key states, metrics, and decisions must be visible on the local dashboard.
+
+### 5.6 Rules Over Strategy Principle
+
+The system may modify the training script, but must not modify evaluation criteria, validation data, or supreme constraints.
 
 ---
 
-## 8. 核心概念定义
+## 6. Target Users and Usage Scenarios
+
+### 6.1 Target Users
+
+- Individual researchers wanting to verify whether a self-evolving training system is feasible;
+- Non-programmers willing to observe system behavior through charts and dashboards;
+- Developers wanting to build and maintain code repositories with AI coding assistants;
+- People wanting to verify AI research automation prototypes on local devices.
+
+### 6.2 Typical Usage Scenarios
+
+#### Scenario A: User Starts the System
+
+The user opens the local dashboard, clicks "Start Experiment", and the system loads the current baseline, reads historical memory, and automatically begins the next experiment round.
+
+#### Scenario B: User Observes Whether the System Is Improving
+
+On the overview page, the user sees the current best `val_loss`, today's experiment count, the last 10 round results, keep/discard/crash ratios and trend charts, enabling them to judge whether the system is actually improving.
+
+#### Scenario C: User Intervenes in High-Risk Experiments
+
+When the system plans a major change, the dashboard prompts "High-risk experiment pending approval", and the user can review the hypothesis and expected impact before approving or rejecting.
+
+#### Scenario D: User Reverts to Best Version
+
+When the system performs poorly across multiple rounds, the user clicks "Restore to Best Version" on the control page, and the system automatically reverts to the baseline.
+
+---
+
+## 7. Product Scope
+
+### 7.1 v1 Must-Do Scope
+
+1. TinyStories data preparation;
+2. Tiny decoder-only Transformer training script;
+3. Fixed-budget training and validation;
+4. Patch plan generation;
+5. Patch application;
+6. Keep / discard / rollback decisions;
+7. Experiment history logging;
+8. Local visual dashboard;
+9. Human control interface;
+10. Compatible with personal computers (macOS, Windows, Linux).
+
+### 7.2 v1 Out-of-Scope
+
+1. Public deployment;
+2. Complex account and permission systems;
+3. SaaS multi-user collaboration;
+4. Large-scale distributed training;
+5. Multi-branch parallel experiment graphs;
+6. Automatic evaluator modification;
+7. Automatic supreme rules modification;
+8. Mobile app.
+
+---
+
+## 8. Core Concept Definitions
 
 ### 8.1 `mutable_train.py`
 
-系统的唯一优化对象。一份可运行、可评估、可被 patch 的微型 LLM 训练脚本。
+The system's sole optimization target. A runnable, evaluable, patchable tiny LLM training script.
 
-### 8.2 一轮实验
+### 8.2 One Experiment Round
 
-一轮实验定义为：
+An experiment round is defined as:
 
-> 对 `mutable_train.py` 应用一次 patch，在固定训练预算下跑一次训练与验证，记录结果，并判断是否保留该改动。
+> Applying one patch to `mutable_train.py`, running one training and validation session under a fixed budget, recording the results, and deciding whether to keep the change.
 
 ### 8.3 Baseline
 
-当前已知最佳版本及其对应指标。
+The current known-best version and its corresponding metrics.
 
 ### 8.4 Patch Plan
 
-结构化的下一轮改动方案，至少包含：实验类别、改动区域、改动幅度、改动假设、预期影响、回滚触发条件。
+A structured proposal for the next round's modifications, including at minimum: experiment class, target zone, change magnitude, hypothesis, expected effect, and rollback trigger conditions.
 
 ### 8.5 Keep / Discard / Crash
 
-- **Keep**：本轮结果优于 baseline，或近似持平但复杂度降低；
-- **Discard**：运行成功但结果不优；
-- **Crash**：运行异常，如语法错误、NaN、OOM、超时等。
+- **Keep**: This round's results are better than baseline, or approximately equal but with reduced complexity;
+- **Discard**: Ran successfully but results were not better;
+- **Crash**: Runtime anomaly, such as syntax errors, NaN, OOM, timeout, etc.
 
 ### 8.6 Memory
 
-实验记忆库，用于记录历史结果、失败类型和经验总结，为下一轮决策提供依据。
+Experiment memory store for recording historical results, failure types, and lessons learned, providing the basis for next-round decisions.
 
 ---
 
-## 9. 系统架构
+## 9. System Architecture
 
-v1 系统由以下核心文件组成：
+The v1 system consists of the following core files:
 
-- `prepare.py`：准备 TinyStories 数据
-- `mutable_train.py`：唯一优化对象
-- `policy.py`：根据历史记录生成下一轮 patch plan
-- `runner.py`：执行 patch 应用、训练运行与日志采集
-- `judge.py`：根据结果决定 keep / discard / crash
-- `memory.jsonl`：记录实验历史
-- `baseline/`：存储当前最佳版本
-- `dashboard/`：本地可视化面板
-- `constitution.md`：最高规则
-- `AGENTS.md`：给 Codex 的项目约束
+- `prepare.py`: Prepares TinyStories data
+- `mutable_train.py`: Sole optimization target
+- `policy.py`: Generates next-round patch plans based on history
+- `runner.py`: Applies patches, runs training, collects logs
+- `judge.py`: Decides keep / discard / crash based on results
+- `memory.jsonl`: Records experiment history
+- `baseline/`: Stores the current best version
+- `dashboard/`: Local visual dashboard
+- `constitution.md`: Supreme rules
+- `AGENTS.md`: Project constraints for AI coding assistants
 
-### 9.1 模块职责
+### 9.1 Module Responsibilities
 
-#### 数据准备模块
-负责下载、清洗、切分和缓存 TinyStories 数据。
+#### Data Preparation Module
+Responsible for downloading, cleaning, splitting, and caching TinyStories data.
 
-#### 训练对象模块
-负责定义模型、训练循环、验证逻辑和标准化输出。
+#### Training Target Module
+Responsible for defining the model, training loop, validation logic, and standardized output.
 
-#### 策略模块
-负责从历史实验中决定下一轮该改什么、改哪块、改多大。
+#### Policy Module
+Responsible for deciding what to change next, which zone to target, and how much to change, based on historical experiments.
 
-#### 执行模块
-负责应用 patch、运行训练、解析输出。
+#### Execution Module
+Responsible for applying patches, running training, and parsing output.
 
-#### 裁决模块
-负责比较结果，得出 keep / discard / crash。
+#### Judging Module
+Responsible for comparing results and producing keep / discard / crash decisions.
 
-#### 记忆模块
-负责记录历史，供策略模块读取。
+#### Memory Module
+Responsible for recording history, readable by the policy module.
 
-#### 可视化模块
-负责向用户展示关键指标、趋势、实验列表、差异与控制入口。
-
----
-
-## 10. 功能需求
-
-## 10.1 数据准备模块（`prepare.py`）
-
-### 目标
-
-让 TinyStories 数据可在本地一次准备、多次复用。
-
-### 功能需求
-
-1. 支持首次下载数据或读取本地已有数据；
-2. 支持 tokenizer 初始化或加载；
-3. 将数据切分为 train / val；
-4. 生成可复用缓存；
-5. 重复运行时跳过已完成步骤；
-6. 输出数据规模、词表大小、上下文长度等摘要。
-
-### 验收标准
-
-- 首次运行能成功生成缓存；
-- 再次运行不会重复准备；
-- train / val 划分稳定；
-- 本地缓存路径清晰可查。
+#### Visualization Module
+Responsible for presenting key metrics, trends, experiment lists, diffs, and control interfaces to users.
 
 ---
 
-## 10.2 可优化训练脚本模块（`mutable_train.py`）
+## 10. Functional Requirements
 
-### 目标
+## 10.1 Data Preparation Module (`prepare.py`)
 
-提供一个结构清晰、运行稳定、适合被自动小步改动的微型 LLM 训练脚本。
+### Goal
 
-### 内容要求
+Enable TinyStories data to be prepared once locally and reused multiple times.
 
-必须包含：
+### Functional Requirements
 
-1. 模型配置区；
-2. decoder-only Transformer 定义；
-3. 优化器配置；
-4. 学习率调度；
-5. 数据加载；
-6. 固定预算训练循环；
-7. 验证逻辑；
-8. 结果打印。
+1. Support first-time data download or reading existing local data;
+2. Support tokenizer initialization or loading;
+3. Split data into train / val;
+4. Generate reusable cache;
+5. Skip completed steps on repeated runs;
+6. Output summary of data size, vocabulary size, context length, etc.
 
-### 允许优化的逻辑
+### Acceptance Criteria
 
-1. 模型深度、宽度、头数；
-2. dropout、MLP ratio、norm 细节；
-3. learning rate、weight decay、betas；
-4. warmup、decay 策略；
-5. batch size、accumulation steps；
-6. 局部训练稳定性与效率逻辑。
+- First run successfully generates cache;
+- Subsequent runs do not re-prepare;
+- Train / val split is stable;
+- Local cache path is clearly identifiable.
 
-### 禁止优化的逻辑
+---
 
-1. 验证集；
-2. 评估指标定义；
-3. 预算上限；
-4. 结果输出 schema；
-5. 外部 judge 逻辑。
+## 10.2 Mutable Training Script Module (`mutable_train.py`)
 
-### 标准输出字段
+### Goal
+
+Provide a clearly structured, stably running micro LLM training script suitable for automated small-step modifications.
+
+### Content Requirements
+
+Must include:
+
+1. Model configuration section;
+2. Decoder-only Transformer definition;
+3. Optimizer configuration;
+4. Learning rate schedule;
+5. Data loading;
+6. Fixed-budget training loop;
+7. Validation logic;
+8. Result output.
+
+### Allowed Optimizations
+
+1. Model depth, width, number of heads;
+2. Dropout, MLP ratio, normalization details;
+3. Learning rate, weight decay, betas;
+4. Warmup, decay strategy;
+5. Batch size, accumulation steps;
+6. Local training stability and efficiency logic.
+
+### Forbidden Optimizations
+
+1. Validation set;
+2. Evaluation metric definition;
+3. Budget ceiling;
+4. Result output schema;
+5. External judge logic.
+
+### Standard Output Fields
 
 - `val_loss`
 - `train_time_sec`
@@ -316,31 +316,31 @@ v1 系统由以下核心文件组成：
 - `num_params`
 - `status`
 
-### 验收标准
+### Acceptance Criteria
 
-- 单独运行脚本可完成一次训练与验证；
-- 输出字段稳定；
-- 在 M 系列 iMac 上可完成短预算训练；
-- 代码结构足够清晰，便于后续 patch。
+- Running the script standalone completes one training and validation cycle;
+- Output fields are stable;
+- Short-budget training completes on personal computers;
+- Code structure is clear enough for subsequent patching.
 
 ---
 
-## 10.3 策略模块（`policy.py`）
+## 10.3 Policy Module (`policy.py`)
 
-### 目标
+### Goal
 
-基于历史结果，决定下一轮应该如何修改 `mutable_train.py`。
+Based on historical results, decide how to modify `mutable_train.py` in the next round.
 
-### v1 职责
+### v1 Responsibilities
 
-1. 读取最近 N 轮实验记录；
-2. 判断当前处于探索、利用、修复或停滞状态；
-3. 选择实验类别；
-4. 选择目标区域；
-5. 决定改动幅度；
-6. 输出结构化 patch plan。
+1. Read the most recent N experiment records;
+2. Determine the current phase: exploration, exploitation, repair, or stagnation;
+3. Select experiment class;
+4. Select target zone;
+5. Decide change magnitude;
+6. Output a structured patch plan.
 
-### v1 experiment class
+### v1 Experiment Classes
 
 - `repair`
 - `simplification`
@@ -351,7 +351,7 @@ v1 系统由以下核心文件组成：
 - `exploration`
 - `exploitation`
 
-### patch plan 字段
+### Patch Plan Fields
 
 - `experiment_class`
 - `target_zone`
@@ -361,94 +361,94 @@ v1 系统由以下核心文件组成：
 - `expected_effect`
 - `rollback_trigger`
 
-### v1 实现要求
+### v1 Implementation Requirements
 
-- 启发式规则为主；
-- 可加入简单 action scoring；
-- 结果必须结构化；
-- 不要求策略模型自训练。
+- Primarily heuristic rules;
+- May include simple action scoring;
+- Output must be structured;
+- Policy model self-training is not required.
 
-### 验收标准
+### Acceptance Criteria
 
-- 能根据历史记录输出合法 patch plan；
-- 连续 crash 时能优先 repair；
-- 连续停滞时能提高探索权重；
-- 输出可被 runner 消费。
-
----
-
-## 10.4 执行模块（`runner.py`）
-
-### 目标
-
-严格执行一轮实验，并保证 patch 应用、训练运行、结果采集和版本处理的可靠性。
-
-### 功能需求
-
-1. 接收 patch plan；
-2. 对 `mutable_train.py` 生成并应用 patch；
-3. 运行固定预算训练；
-4. 抓取输出结果；
-5. 调用 judge 做裁决；
-6. 对 keep 结果更新 baseline；
-7. 对 discard / crash 结果回滚；
-8. 写入 memory。
-
-### 异常处理
-
-必须处理：
-
-- 语法错误；
-- 运行错误；
-- NaN；
-- OOM；
-- 超时；
-- 输出字段缺失。
-
-### 验收标准
-
-- 单轮实验可自动完成；
-- 失败实验不会污染 baseline；
-- 输出结果与 memory 一致；
-- 重复运行稳定。
+- Can output valid patch plans based on history;
+- Prioritizes repair after consecutive crashes;
+- Increases exploration weight after consecutive stagnation;
+- Output can be consumed by runner.
 
 ---
 
-## 10.5 裁决模块（`judge.py`）
+## 10.4 Execution Module (`runner.py`)
 
-### 目标
+### Goal
 
-统一负责比较当前实验结果与 baseline，输出可解释的保留/丢弃判断。
+Strictly execute one experiment round, ensuring reliability of patch application, training execution, result collection, and version management.
 
-### 功能需求
+### Functional Requirements
 
-1. 比较 `val_loss`；
-2. 对异常结果识别为 crash；
-3. 对近似持平但复杂度下降的情况支持 keep；
-4. 输出 keep / discard / crash；
-5. 输出简短理由说明。
+1. Receive patch plan;
+2. Generate and apply patch to `mutable_train.py`;
+3. Run fixed-budget training;
+4. Capture output results;
+5. Call judge for evaluation;
+6. Update baseline on keep results;
+7. Rollback on discard / crash results;
+8. Write to memory.
 
-### v1 裁决规则
+### Exception Handling
 
-- 主指标：`val_loss` 越低越好；
-- 次指标：时间、内存、参数量、复杂度；
-- 异常优先级最高。
+Must handle:
 
-### 验收标准
+- Syntax errors;
+- Runtime errors;
+- NaN;
+- OOM;
+- Timeout;
+- Missing output fields.
 
-- 结果判定稳定；
-- 不允许通过修改评估器“作弊”；
-- 能为 dashboard 提供可读理由。
+### Acceptance Criteria
+
+- A single experiment round can complete automatically;
+- Failed experiments do not corrupt baseline;
+- Output results are consistent with memory;
+- Repeated runs are stable.
 
 ---
 
-## 10.6 记忆模块（`memory.jsonl`）
+## 10.5 Judging Module (`judge.py`)
 
-### 目标
+### Goal
 
-记录系统历史实验，支持回顾、统计与策略决策。
+Centrally compare current experiment results with baseline and output explainable keep/discard decisions.
 
-### 每条记录字段
+### Functional Requirements
+
+1. Compare `val_loss`;
+2. Identify anomalous results as crash;
+3. Support keep for approximately equal results with reduced complexity;
+4. Output keep / discard / crash;
+5. Output brief reason explanation.
+
+### v1 Judging Rules
+
+- Primary metric: lower `val_loss` is better;
+- Secondary metrics: time, memory, parameter count, complexity;
+- Anomalies take highest priority.
+
+### Acceptance Criteria
+
+- Result determination is stable;
+- No "cheating" by modifying the evaluator;
+- Can provide readable reasons for the dashboard.
+
+---
+
+## 10.6 Memory Module (`memory.jsonl`)
+
+### Goal
+
+Record system experiment history, supporting review, statistics, and policy decisions.
+
+### Fields Per Record
 
 - experiment_id
 - timestamp
@@ -464,326 +464,326 @@ v1 系统由以下核心文件组成：
 - judge_reason
 - lesson
 
-### 验收标准
+### Acceptance Criteria
 
-- 每轮实验都有记录；
-- 字段结构稳定；
-- dashboard 可直接读取；
-- strategy 可直接读取。
+- Every experiment round has a record;
+- Field structure is stable;
+- Dashboard can read directly;
+- Policy can read directly.
 
 ---
 
-## 10.7 本地可视化面板（Dashboard）
+## 10.7 Local Visual Dashboard
 
-### 目标
+### Goal
 
-让不懂编程的用户无需阅读代码和终端日志，也能理解系统是否在进步、每轮实验做了什么、为什么保留或丢弃，以及何时需要人工介入。
+Allow non-programmers to understand whether the system is improving, what each experiment round did, why decisions were made to keep or discard, and when human intervention is needed — without reading code or terminal logs.
 
-### 关键原则
+### Key Principles
 
-- 信息要清楚，不追求复杂炫酷；
-- 本地运行，不要求公网部署；
-- 关键指标一眼可见；
-- 允许人工控制关键动作。
+- Information should be clear, not complex or flashy;
+- Runs locally, no public deployment required;
+- Key metrics visible at a glance;
+- Human control of key actions is allowed.
 
-### 页面需求
+### Page Requirements
 
-#### A. 总览页
+#### A. Overview Page
 
-显示：
+Displays:
 
-- 当前运行状态（运行中 / 暂停 / 错误）
-- 当前最佳版本编号
-- 当前最佳 `val_loss`
-- 最近一次实验结果
-- 今日实验轮数
-- keep / discard / crash 统计
-- 当前阶段（baseline / exploration / exploitation / repair）
+- Current running status (running / paused / error)
+- Current best version number
+- Current best `val_loss`
+- Most recent experiment result
+- Today's experiment count
+- Keep / discard / crash statistics
+- Current phase (baseline / exploration / exploitation / repair)
 
-#### B. 实验历史页
+#### B. Experiment History Page
 
-表格展示：
+Table showing:
 
-- 实验编号
-- 时间
-- patch 摘要
-- experiment class
-- target zone
+- Experiment number
+- Time
+- Patch summary
+- Experiment class
+- Target zone
 - `val_loss`
-- 训练时长
-- 峰值内存
-- 状态
-- 原因摘要
+- Training duration
+- Peak memory
+- Status
+- Reason summary
 
-支持筛选：
+Filtering support:
 
-- 按状态筛选
-- 按类别筛选
-- 按时间筛选
+- By status
+- By class
+- By time
 
-#### C. 指标趋势页
+#### C. Metrics Trend Page
 
-图表展示：
+Charts showing:
 
-- `val_loss` 趋势线
-- keep rate 趋势
-- crash rate 趋势
-- 各 experiment class 的成功率
-- 各 target zone 的平均收益
+- `val_loss` trend line
+- Keep rate trend
+- Crash rate trend
+- Success rate by experiment class
+- Average improvement by target zone
 
-#### D. 版本对比页
+#### D. Version Comparison Page
 
-显示：
+Displays:
 
-- baseline 与选定版本指标对比
-- patch 摘要对比
-- 核心超参数差异
-- judge 理由
+- Baseline vs. selected version metric comparison
+- Patch summary comparison
+- Core hyperparameter differences
+- Judge reasoning
 
-#### E. 控制页
+#### E. Control Page
 
-提供按钮：
+Provides buttons:
 
-- 开始运行
-- 暂停
-- 单轮实验
-- 恢复到最佳版本
-- 锁定当前 baseline
-- 是否允许高风险实验
-- 是否允许大改动
+- Start running
+- Pause
+- Single experiment round
+- Restore to best version
+- Lock current baseline
+- Allow high-risk experiments toggle
+- Allow major changes toggle
 
-### 关键交互
+### Key Interactions
 
-1. 当系统要执行高风险 patch 时，可弹出“待人工批准”；
-2. crash 时面板必须显示失败类型与最近日志摘要；
-3. 保留/丢弃时必须显示简短自然语言原因；
-4. 用户可以随时暂停系统。
+1. When the system is about to execute a high-risk patch, it may pop up "Pending human approval";
+2. On crash, the dashboard must display the failure type and recent log summary;
+3. On keep/discard, a brief natural language reason must be displayed;
+4. Users can pause the system at any time.
 
-### 验收标准
+### Acceptance Criteria
 
-- 非编程用户能看懂主要页面；
-- 能从总览页判断系统是否在进步；
-- 能从历史页知道每轮做了什么；
-- 能在控制页完成关键人工干预。
-
----
-
-## 11. 关键流程
-
-### 11.1 首次启动流程
-
-1. 用户打开本地面板；
-2. 系统检查数据是否已准备；
-3. 若未准备，引导执行 `prepare.py`；
-4. 系统加载 baseline；
-5. 面板显示“准备就绪”；
-6. 用户点击“开始实验”。
-
-### 11.2 单轮实验流程
-
-1. `policy.py` 读取历史记录；
-2. 生成 patch plan；
-3. `runner.py` 应用 patch；
-4. 运行固定预算训练；
-5. `judge.py` 做裁决；
-6. 更新 baseline 或回滚；
-7. 写入 memory；
-8. dashboard 刷新显示结果。
-
-### 11.3 高风险人工批准流程
-
-1. policy 判定本轮为高风险；
-2. dashboard 标记“待批准”；
-3. 用户查看假设与预期影响；
-4. 用户批准或拒绝；
-5. 系统继续或取消本轮。
-
-### 11.4 恢复最佳版本流程
-
-1. 用户点击“恢复到最佳版本”；
-2. runner 恢复 baseline 文件；
-3. dashboard 更新状态；
-4. 系统继续从 baseline 启动后续实验。
+- Non-programmers can understand the main pages;
+- Can determine from the overview page whether the system is improving;
+- Can learn from the history page what each round did;
+- Can complete critical human interventions on the control page.
 
 ---
 
-## 12. 非功能需求
+## 11. Key Workflows
 
-### 12.1 性能
+### 11.1 First Launch Flow
 
-- v1 单轮实验时长应控制在可接受范围；
-- 本地面板刷新应流畅；
-- 读取历史记录不应明显卡顿。
+1. User opens the local dashboard;
+2. System checks whether data is prepared;
+3. If not prepared, guides execution of `prepare.py`;
+4. System loads baseline;
+5. Dashboard displays "Ready";
+6. User clicks "Start Experiment".
 
-### 12.2 可靠性
+### 11.2 Single Experiment Round Flow
 
-- crash 不得污染 baseline；
-- memory 写入必须原子化；
-- 中断后可恢复。
+1. `policy.py` reads history;
+2. Generates patch plan;
+3. `runner.py` applies patch;
+4. Runs fixed-budget training;
+5. `judge.py` makes judgment;
+6. Updates baseline or rolls back;
+7. Writes to memory;
+8. Dashboard refreshes to display results.
 
-### 12.3 可理解性
+### 11.3 High-Risk Human Approval Flow
 
-- 所有状态名称清晰；
-- 保留/丢弃理由必须可读；
-- 非编程用户可通过面板理解系统主要行为。
+1. Policy determines this round is high-risk;
+2. Dashboard marks "Pending approval";
+3. User reviews hypothesis and expected impact;
+4. User approves or rejects;
+5. System continues or cancels this round.
 
-### 12.4 可维护性
+### 11.4 Restore Best Version Flow
 
-- 文件职责清晰；
-- 日志与数据结构统一；
-- 便于 Codex 后续迭代。
-
-### 12.5 本地兼容性
-
-- 兼容 Apple Silicon iMac；
-- 支持本地 Python / PyTorch MPS 环境；
-- 不依赖 Linux 专属能力。
-
----
-
-## 13. 指标体系
-
-### 13.1 产品指标
-
-- 成功完成的实验轮数
-- keep 比例
-- crash 比例
-- 用户通过 dashboard 完成控制的成功率
-- baseline 刷新次数
-
-### 13.2 研究指标
-
-- 当前最佳 `val_loss`
-- 与初始 baseline 的提升幅度
-- 不同 experiment class 的成功率
-- 不同 target zone 的平均收益
-- 连续无提升轮数
-
-### 13.3 体验指标
-
-- 用户是否能在 1 分钟内理解当前状态
-- 用户是否能在 3 次点击内看到最近实验结果
-- 用户是否能在面板上独立完成暂停/恢复/回滚
+1. User clicks "Restore to Best Version";
+2. Runner restores baseline file;
+3. Dashboard updates status;
+4. System continues subsequent experiments from baseline.
 
 ---
 
-## 14. 风险与约束
+## 12. Non-Functional Requirements
 
-### 14.1 算力风险
+### 12.1 Performance
 
-M 系列 iMac 可以跑 tiny LLM benchmark，但不适合追求高密度、大规模实验，因此 v1 必须控制模型大小与预算。
+- v1 single experiment round duration should be within acceptable range;
+- Local dashboard refresh should be smooth;
+- Reading history should not noticeably lag.
 
-### 14.2 过拟合评测风险
+### 12.2 Reliability
 
-如果系统修改了不该修改的评估路径，可能造成“看起来变强、实际作弊”的问题，因此评估逻辑必须冻结。
+- Crashes must not corrupt baseline;
+- Memory writes must be atomic;
+- Must be recoverable after interruption.
 
-### 14.3 实验噪声风险
+### 12.3 Understandability
 
-短预算训练本身噪声较大，因此 judge 规则要谨慎，必要时可在 v1.1 增加复现实验。
+- All status names should be clear;
+- Keep/discard reasons must be readable;
+- Non-programmers can understand the system's main behavior through the dashboard.
 
-### 14.4 用户理解风险
+### 12.4 Maintainability
 
-若面板信息不清楚，非编程用户仍会失去控制感，因此必须把信息架构设计为“状态、结果、原因、控制”四个最清楚的层次。
+- File responsibilities are clear;
+- Logs and data structures are unified;
+- Easy for AI coding assistants to iterate on.
+
+### 12.5 Local Compatibility
+
+- Compatible with macOS (Apple Silicon), Windows, and Linux;
+- Supports local Python / PyTorch MPS / CUDA / CPU environments;
+- Does not depend on platform-specific capabilities.
 
 ---
 
-## 15. 里程碑
+## 13. Metrics Framework
 
-### Milestone 1：基础训练对象可运行
+### 13.1 Product Metrics
 
-交付：
+- Number of successfully completed experiment rounds
+- Keep ratio
+- Crash ratio
+- Success rate of user controls through dashboard
+- Baseline refresh count
+
+### 13.2 Research Metrics
+
+- Current best `val_loss`
+- Improvement magnitude over initial baseline
+- Success rate by experiment class
+- Average improvement by target zone
+- Consecutive rounds without improvement
+
+### 13.3 Experience Metrics
+
+- Can the user understand the current status within 1 minute
+- Can the user see the most recent experiment result within 3 clicks
+- Can the user independently complete pause/resume/rollback on the dashboard
+
+---
+
+## 14. Risks and Constraints
+
+### 14.1 Compute Risk
+
+Personal computers can run tiny LLM benchmarks, but are not suitable for high-density, large-scale experiments. Therefore v1 must control model size and budget.
+
+### 14.2 Evaluation Overfitting Risk
+
+If the system modifies evaluation paths it shouldn't, it may create a "looks stronger but is actually cheating" problem. Therefore evaluation logic must be frozen.
+
+### 14.3 Experiment Noise Risk
+
+Short-budget training inherently has high noise, so judge rules must be cautious. Reproduction experiments may be added in v1.1.
+
+### 14.4 User Understanding Risk
+
+If dashboard information is unclear, non-programmers will still lose their sense of control. Therefore the information architecture must be designed around four clear layers: "status, results, reasons, controls".
+
+---
+
+## 15. Milestones
+
+### Milestone 1: Basic Training Target Runnable
+
+Deliverables:
 
 - `prepare.py`
 - `mutable_train.py`
-- 本地可跑通一次短预算训练
+- Locally complete one short-budget training run
 
-### Milestone 2：单轮实验闭环打通
+### Milestone 2: Single Experiment Round Closed Loop
 
-交付：
+Deliverables:
 
 - `policy.py`
 - `runner.py`
 - `judge.py`
 - `memory.jsonl`
-- keep / discard / rollback 生效
+- Keep / discard / rollback working
 
-### Milestone 3：本地可视化面板上线
+### Milestone 3: Local Visual Dashboard Online
 
-交付：
+Deliverables:
 
-- 总览页
-- 历史页
-- 趋势页
-- 对比页
-- 控制页
+- Overview page
+- History page
+- Trend page
+- Comparison page
+- Control page
 
-### Milestone 4：v1 可用
+### Milestone 4: v1 Usable
 
-交付：
+Deliverables:
 
-- 连续多轮实验稳定运行
-- dashboard 展示完整
-- 人工干预可用
-- baseline 能被刷新
-
----
-
-## 16. 验收标准
-
-v1 视为完成，需满足以下条件：
-
-1. TinyStories 数据可在本地成功准备；
-2. `mutable_train.py` 可在 M 系列 iMac 上跑通短预算训练；
-3. 系统能完成至少一轮自动 patch + 训练 + 裁决；
-4. keep / discard / crash 逻辑有效；
-5. baseline 机制有效；
-6. history/memory 记录完整；
-7. dashboard 可展示关键状态、实验列表和趋势图；
-8. 用户可通过 dashboard 完成开始、暂停、单轮实验和回滚；
-9. 用户不需要阅读代码即可理解系统大体进展。
+- Multiple experiment rounds running stably
+- Dashboard fully functional
+- Human intervention working
+- Baseline can be refreshed
 
 ---
 
-## 17. v1 后续迭代方向
+## 16. Acceptance Criteria
+
+v1 is considered complete when the following conditions are met:
+
+1. TinyStories data can be successfully prepared locally;
+2. `mutable_train.py` can complete short-budget training on personal computers;
+3. The system can complete at least one automated patch + training + judging round;
+4. Keep / discard / crash logic works;
+5. Baseline mechanism works;
+6. History/memory records are complete;
+7. Dashboard can display key states, experiment lists, and trend charts;
+8. Users can complete start, pause, single experiment, and rollback through the dashboard;
+9. Users do not need to read code to understand the system's general progress.
+
+---
+
+## 17. Post-v1 Iteration Directions
 
 ### v1.1
 
-- 增加 `val_bpb`
-- 增加复现实验
-- 增加更细的失败类型
-- 增加更清楚的 patch diff 展示
+- Add `val_bpb`
+- Add reproduction experiments
+- Add more granular failure types
+- Add clearer patch diff display
 
 ### v1.2
 
-- 增加多候选 patch 比较
-- 增加更强的 action scoring
-- 增加“策略建议”而非自动修改策略
+- Add multi-candidate patch comparison
+- Add stronger action scoring
+- Add "strategy suggestions" rather than automatic strategy modification
 
 ### v2
 
-- 增加分支实验
-- 增加 adopt 机制
-- 增加更强的人工审阅与批注能力
+- Add branch experiments
+- Add adopt mechanism
+- Add stronger human review and annotation capabilities
 
 ---
 
-## 18. 给 Codex 的开发落地说明（产品层）
+## 18. Development Implementation Notes for AI Coding Assistants
 
-### 开发总目标
+### Overall Development Goal
 
-请实现一个本地运行的自我进化实验系统，唯一优化对象为 `mutable_train.py`。该系统以 TinyStories 为数据集，训练一个微型 decoder-only Transformer，在固定预算下比较 `val_loss`，并通过本地可视化面板向非编程用户展示实验进展和控制入口。
+Implement a locally running self-evolving experiment system with `mutable_train.py` as the sole optimization target. The system uses TinyStories as its dataset, trains a tiny decoder-only Transformer, compares `val_loss` under a fixed budget, and presents experiment progress and control interfaces to non-programmers through a local visual dashboard.
 
-### 硬约束
+### Hard Constraints
 
-1. 只能优化 `mutable_train.py`；
-2. 不允许修改评估逻辑和验证数据；
-3. 必须支持 keep / discard / rollback；
-4. 必须产出 `memory.jsonl`；
-5. 必须提供本地可视化面板；
-6. 必须兼容 Apple Silicon iMac；
-7. 不做公网多用户系统。
+1. May only optimize `mutable_train.py`;
+2. Must not modify evaluation logic and validation data;
+3. Must support keep / discard / rollback;
+4. Must produce `memory.jsonl`;
+5. Must provide a local visual dashboard;
+6. Must be compatible with personal computers (macOS, Windows, Linux);
+7. No public multi-user system.
 
-### 交付文件
+### Deliverable Files
 
 - `prepare.py`
 - `mutable_train.py`
@@ -797,14 +797,13 @@ v1 视为完成，需满足以下条件：
 
 ---
 
-## 19. 结论
+## 19. Conclusion
 
-SelfEvo v1 不是一个“泛化的 AGI 自我进化平台”，而是一个**明确、收敛、可落地**的本地研究系统：
+SelfEvo v1 is not a "generalized AGI self-evolving platform", but a **clear, focused, and implementable** local research system:
 
-- 它只优化一个对象：`mutable_train.py`；
-- 它只做一个任务：TinyStories tiny LLM 短预算训练；
-- 它只追一个主指标：`val_loss`；
-- 它必须对非编程用户可见、可理解、可干预。
+- It optimizes only one target: `mutable_train.py`;
+- It performs only one task: TinyStories tiny LLM short-budget training;
+- It chases only one primary metric: `val_loss`;
+- It must be visible, understandable, and controllable for non-programmers.
 
-这份 PRD 的目的，就是让项目从概念讨论，进入明确可开发状态。
-
+The purpose of this PRD is to move the project from conceptual discussion into a clearly developable state.

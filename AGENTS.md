@@ -1,54 +1,57 @@
 # SelfEvo - AGENTS.md
 
-## 项目概述
+## Project Overview
 
-SelfEvo 是一个运行在 Apple Silicon iMac 上的本地自我进化实验系统，唯一优化对象为 `mutable_train.py`。
+SelfEvo is a local self-evolving experiment system that runs on personal computers (Apple Silicon Mac, Windows, Linux). Its sole optimization target is `mutable_train.py`.
 
-## 项目结构
+## Project Structure
 
 ```
 selfevo/
-├── prepare.py            # 数据准备（TinyStories）
-├── mutable_train.py      # 唯一优化对象：微型 Transformer 训练脚本
-├── policy.py             # 策略模块：生成 patch plan
-├── runner.py             # 执行模块：应用 patch、运行训练、调用 judge
-├── judge.py              # 裁决模块：keep / discard / crash
-├── main.py               # 入口点：启动 dashboard + 实验循环
-├── constitution.md       # 最高规则（不可修改）
-├── requirements.txt      # Python 依赖
-├── data/                 # 数据缓存（tokenizer、train.bin、val.bin）
-├── baseline/             # 当前最佳版本
-├── memory.jsonl          # 实验历史记录
-├── state.json            # 运行状态（dashboard IPC）
+├── prepare.py            # Data preparation (TinyStories)
+├── mutable_train.py      # Sole optimization target: tiny Transformer training script
+├── policy.py             # Policy module: generates patch plans
+├── runner.py             # Execution module: applies patches, runs training, calls judge
+├── judge.py              # Judging module: keep / discard / crash
+├── main.py               # Entry point: launches dashboard + experiment loop
+├── generate.py           # Text generation: load best model and generate samples
+├── constitution.md       # Supreme rules (immutable)
+├── requirements.txt      # Python dependencies
+├── data/                 # Data cache (tokenizer, train.bin, val.bin)
+├── baseline/             # Current best version
+├── memory.jsonl          # Experiment history
+├── state.json            # Runtime state (dashboard IPC)
 └── dashboard/
-    ├── app.py            # FastAPI 后端
-    └── static/           # 前端文件（HTML/JS/CSS）
+    ├── app.py            # FastAPI backend
+    └── static/           # Frontend files (HTML/JS/CSS)
 ```
 
-## 开发约束
+## Development Constraints
 
-1. **只修改 mutable_train.py**：系统的自动进化只作用于这一个文件
-2. **不修改评估逻辑**：val_loss 的计算方式和验证数据必须冻结
-3. **Apple Silicon 兼容**：使用 PyTorch MPS 后端，不依赖 CUDA
-4. **本地运行**：不做公网部署，不需要账户系统
-5. **记录完整**：每轮实验都必须写入 memory.jsonl
+1. **Only modify mutable_train.py**: The system's automatic evolution only acts on this single file
+2. **Do not modify evaluation logic**: The val_loss computation and validation data must remain frozen
+3. **Cross-platform compatible**: Supports Apple Silicon (MPS), NVIDIA GPU (CUDA), and CPU-only mode
+4. **Local execution**: No public deployment, no account system required
+5. **Complete logging**: Every experiment round must be recorded in memory.jsonl
+6. **Keep docs in sync**: When adding, removing, or renaming modules/files, update README.md and this file's Project Structure section accordingly. When changing runtime dependencies or setup steps, update README.md's Quick Start section.
 
-## 关键流程
+## Key Workflow
 
-1. `prepare.py` 准备数据
-2. `runner.py` 调用 `policy.py` 生成 patch plan
-3. `runner.py` 应用 patch 到 `mutable_train.py`
-4. 子进程运行训练
-5. `judge.py` 比较结果
-6. keep → 更新 baseline；discard/crash → 回滚
-7. 写入 memory.jsonl
-8. dashboard 展示结果
+1. `prepare.py` prepares data
+2. `runner.py` calls `policy.py` to generate a patch plan
+3. `runner.py` applies the patch to `mutable_train.py`
+4. A subprocess runs the training
+5. `judge.py` compares the results
+6. keep → update baseline; discard/crash → rollback
+7. Write to memory.jsonl
+8. Dashboard displays the results
 
-## 技术栈
+## Tech Stack
 
 - Python 3.10+
-- PyTorch (MPS backend)
+- PyTorch (MPS / CUDA / CPU backend)
 - FastAPI + uvicorn (dashboard)
-- Chart.js (前端图表)
-- tokenizers (BPE 分词)
-- datasets (HuggingFace 数据加载)
+- Chart.js (frontend charts)
+- tokenizers (BPE tokenization)
+- datasets (HuggingFace data loading)
+- google-generativeai (Gemini API for AI-powered policy)
