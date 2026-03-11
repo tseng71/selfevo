@@ -33,6 +33,7 @@ selfevo/
 3. **Cross-platform compatible**: Supports Apple Silicon (MPS), NVIDIA GPU (CUDA), and CPU-only mode
 4. **Local execution**: No public deployment, no account system required
 5. **Complete logging**: Every experiment round must be recorded in memory.jsonl
+6. **Keep docs in sync**: When adding, removing, or renaming modules/files, update README.md and this file's Project Structure section accordingly. When changing runtime dependencies or setup steps, update README.md's Quick Start section.
 
 ## Key Workflow
 

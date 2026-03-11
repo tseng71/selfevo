@@ -32,6 +32,7 @@ selfevo/
 3. **Apple Silicon 兼容**：使用 PyTorch MPS 后端，不依赖 CUDA
 4. **本地运行**：不做公网部署，不需要账户系统
 5. **记录完整**：每轮实验都必须写入 memory.jsonl
+6. **文档同步**：新增、删除或重命名模块/文件时，必须同步更新 README.md 和本文件的项目结构部分。修改运行依赖或启动步骤时，必须同步更新 README.md 的 Quick Start 部分。
 
 ## 关键流程
 
