@@ -1,6 +1,6 @@
 # SelfEvo - Self-Evolving AI Training System
 
-SelfEvo is a local self-evolving experiment system inspired by Andrej Karpathy's [autoresearch](https://x.com/kaboroevich/status/1927439207498973645) concept. It automatically and iteratively improves a tiny language model training script through an autonomous loop of code modification, training, evaluation, and selection.
+SelfEvo is a local self-evolving experiment system inspired by Andrej Karpathy's [autoresearch](https://github.com/karpathy/autoresearch) concept. It automatically and iteratively improves a tiny language model training script through an autonomous loop of code modification, training, evaluation, and selection.
 
 ## What It Does
 
@@ -123,9 +123,27 @@ SelfEvo takes the idea of "AI doing research" and narrows it down to a minimal, 
 
 The AI policy reads experiment history, identifies what worked and what didn't, and proposes the next modification. Over many rounds, the system accumulates experience and (ideally) converges toward better configurations and architectures.
 
-## Background
+## Background: What Is Autoresearch?
 
-This project is inspired by the "autoresearch" direction discussed by Andrej Karpathy and others — the idea that AI can automate the "propose hypothesis → run experiment → analyze results → iterate" cycle of research. SelfEvo is a concrete, minimal implementation of this idea: small enough to run on a personal computer, constrained enough to be verifiable, and transparent enough for non-programmers to observe and control.
+[Autoresearch](https://github.com/karpathy/autoresearch) is a concept and project by Andrej Karpathy (former Tesla AI lead, OpenAI co-founder) that automates the scientific research cycle: an AI agent modifies a training script, runs a fixed-budget experiment, checks if the results improved, keeps or discards the change, and repeats — hundreds of times overnight, unattended.
+
+The core insight is simple: instead of a human researcher manually tweaking hyperparameters and architectures, let an AI agent do the "propose → experiment → evaluate → iterate" loop autonomously. In Karpathy's runs, the agent independently rediscovered techniques like RMSNorm and tied embeddings that took human researchers years to formalize.
+
+### How SelfEvo Relates
+
+SelfEvo follows the same core loop but with different design choices:
+
+| | Karpathy's autoresearch | SelfEvo |
+|---|---|---|
+| **Hardware** | Single NVIDIA GPU (or 8x H100) | Any personal computer — Mac (MPS), Windows/Linux (CUDA or CPU) |
+| **Training budget** | 5 minutes wall-clock per experiment | 500 steps per experiment |
+| **AI agent** | Claude / Codex modifies `train.py` | Gemini modifies `mutable_train.py` (with heuristic fallback) |
+| **Human interface** | Terminal + `program.md` | Local web dashboard with visual controls |
+| **Experiment memory** | Git history | Structured `memory.jsonl` fed back into the AI policy |
+| **Target audience** | ML researchers with GPU access | Anyone with a personal computer, including non-programmers |
+| **Guardrails** | Minimal | `constitution.md` defines immutable rules; `judge.py` enforces keep/discard/crash logic |
+
+SelfEvo was built before autoresearch was open-sourced, based on the same underlying idea: narrow "AI doing research" into a small, verifiable, automated loop. The key difference is accessibility — SelfEvo is designed to run on everyday hardware and be understandable through a visual dashboard, without requiring GPU servers or terminal expertise.
 
 ## Documentation
 
