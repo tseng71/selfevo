@@ -240,7 +240,7 @@ Based on your analysis, propose a modification to improve val_loss. You have FUL
 - **Add new imports** if needed (e.g. from torch.optim.lr_scheduler import ...)
 - **Add entirely new modules/classes/functions** — there is NO limit on how much code you can add or rewrite
 
-{"⚠️ PLATEAU DETECTED (" + str(plateau_len) + " experiments without improvement). Config-only tweaks have FAILED. You MUST propose STRUCTURAL CODE CHANGES such as:" + chr(10) + "- Replace attention mechanism (e.g. multi-query attention, grouped-query attention, ALiBi, RoPE)" + chr(10) + "- Rewrite FFN (e.g. SwiGLU -> MoE, add gating, change expansion ratio)" + chr(10) + "- Change normalization (e.g. RMSNorm -> LayerNorm, pre-norm -> post-norm, add DeepNorm)" + chr(10) + "- Add techniques (e.g. weight tying, cosine LR decay, gradient checkpointing, label smoothing)" + chr(10) + "- Change optimizer (e.g. AdamW -> Lion, Sophia, schedule-free Adam)" + chr(10) + "- Rewrite the training loop (e.g. add warmup restarts, gradient accumulation changes, curriculum learning)" + chr(10) + "DO NOT just tweak numbers — rewrite actual code!" if plateau_len >= 3 else "You can combine multiple types of changes in one experiment. Be creative and strategic."}
+{"⚠️ PLATEAU DETECTED (" + str(plateau_len) + " experiments without improvement)." + chr(10) + "The current baseline ALREADY has: RMSNorm, SwiGLU FFN, RoPE positional encoding, QK-Norm, weight tying, AdamW optimizer." + chr(10) + "DO NOT suggest any of the above — they are already implemented." + chr(10) + "Config-only tweaks (changing numbers like dropout, learning_rate, n_head, warmup_steps, weight_decay, beta2) have been EXHAUSTIVELY tried and FAILED. You are FORBIDDEN from proposing config-only changes." + chr(10) + "You MUST propose NOVEL STRUCTURAL CODE CHANGES that are NOT already in the baseline. Ideas:" + chr(10) + "- Multi-Query Attention (MQA) or Grouped-Query Attention (GQA) to reduce KV parameters and improve efficiency" + chr(10) + "- Mixture of Experts (MoE) with top-k routing in the FFN layer" + chr(10) + "- Label smoothing in the loss function" + chr(10) + "- Curriculum learning (start with shorter sequences, gradually increase)" + chr(10) + "- Z-loss regularization for training stability" + chr(10) + "- Stochastic depth (randomly drop transformer layers during training)" + chr(10) + "- μP (maximal update parameterization) for better scaling of learning rates" + chr(10) + "- Sequence packing to eliminate padding waste" + chr(10) + "- Replace AdamW with Lion, Sophia, or schedule-free Adam optimizer" + chr(10) + "- Add auxiliary losses (e.g. intermediate layer prediction)" + chr(10) + "Pick ONE idea and implement it fully. Write real code, not config tweaks!" if plateau_len >= 3 else "You can combine multiple types of changes in one experiment. Be creative and strategic."}
 
 IMPORTANT: Do NOT repeat modifications that already failed in the history above. Check the history carefully before proposing.
 
@@ -279,32 +279,32 @@ def _extract_mutable_sections(code):
     return code
 
 
-def _call_gemini(api_key, model, prompt):
+def _call_gemini(api_key, model, prompt, temperature=0.7):
     """Call Gemini API and return response text."""
     from google import genai
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
         model=model,
         contents=prompt,
-        config={"temperature": 0.7, "max_output_tokens": 16384},
+        config={"temperature": temperature, "max_output_tokens": 16384},
     )
     return response.text.strip()
 
 
-def _call_openai(api_key, model, prompt):
+def _call_openai(api_key, model, prompt, temperature=0.7):
     """Call OpenAI API and return response text."""
     from openai import OpenAI
     client = OpenAI(api_key=api_key)
     response = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
+        temperature=temperature,
         max_tokens=16384,
     )
     return response.choices[0].message.content.strip()
 
 
-def _call_claude(api_key, model, prompt):
+def _call_claude(api_key, model, prompt, temperature=0.7):
     """Call Anthropic Claude API and return response text."""
     import anthropic
     client = anthropic.Anthropic(api_key=api_key)
@@ -312,7 +312,7 @@ def _call_claude(api_key, model, prompt):
         model=model,
         max_tokens=16384,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
+        temperature=temperature,
     )
     return response.content[0].text.strip()
 
@@ -336,13 +336,21 @@ def generate_patch_plan_ai(history, cfg, phase):
         baseline_code = BASELINE_SCRIPT.read_text() if BASELINE_SCRIPT.exists() else ""
         prompt = _build_ai_prompt(baseline_code, cfg, history, phase)
 
+        # Detect plateau length for temperature adjustment
+        _plateau_len = 0
+        for r in reversed(history):
+            if r.get("status") == "keep" and r.get("judge_reason", "").startswith("val_loss improved"):
+                break
+            _plateau_len += 1
+        temp = 0.9 if _plateau_len >= 3 else 0.7
+
         # Call the appropriate provider
         if provider == "gemini":
-            text = _call_gemini(api_key, model, prompt)
+            text = _call_gemini(api_key, model, prompt, temperature=temp)
         elif provider == "openai":
-            text = _call_openai(api_key, model, prompt)
+            text = _call_openai(api_key, model, prompt, temperature=temp)
         elif provider == "claude":
-            text = _call_claude(api_key, model, prompt)
+            text = _call_claude(api_key, model, prompt, temperature=temp)
         else:
             return None
 
