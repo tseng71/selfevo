@@ -277,6 +277,14 @@ def run_single_experiment(require_approval=False):
         "last_update": datetime.now().isoformat(),
     })
 
+    # Export dashboard data and push to GitHub Pages
+    try:
+        from export_dashboard import export, push
+        export()
+        push()
+    except Exception as e:
+        print(f"[runner] Dashboard export/push failed (non-fatal): {e}")
+
     return record
 
 

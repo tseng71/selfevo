@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SelfEvo Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="header">
+        <h1>SelfEvo</h1>
+        <span id="update-time" class="status-badge status-idle">--</span>
+    </div>
+
+    <div class="nav">
+        <button class="active" data-page="overview">Overview</button>
+        <button data-page="history">History</button>
+        <button data-page="trends">Trends</button>
+    </div>
+
+    <div class="main">
+        <!-- Overview -->
+        <div id="page-overview" class="page active">
+            <div class="card-grid">
+                <div class="card">
+                    <div class="card-label">Best val_loss</div>
+                    <div class="card-value" id="best-val-loss">--</div>
+                    <div class="card-sub" id="best-experiment"></div>
+                </div>
+                <div class="card">
+                    <div class="card-label">Total Experiments</div>
+                    <div class="card-value" id="total-experiments">0</div>
+                    <div class="card-sub" id="today-count"></div>
+                </div>
+                <div class="card">
+                    <div class="card-label">Keep / Discard / Crash</div>
+                    <div class="card-value" id="kdc-stats">0 / 0 / 0</div>
+                    <div class="card-sub" id="keep-rate"></div>
+                </div>
+                <div class="card">
+                    <div class="card-label">Improvement</div>
+                    <div class="card-value" id="improvement">--</div>
+                    <div class="card-sub" id="improvement-sub"></div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Recent val_loss Trend</div>
+                <canvas id="overview-chart" height="200"></canvas>
+            </div>
+
+            <div class="card" id="last-experiment-card" style="display:none">
+                <div class="card-label">Last Experiment</div>
+                <div id="last-experiment-info"></div>
+            </div>
+        </div>
+
+        <!-- History -->
+        <div id="page-history" class="page">
+            <div class="filters">
+                <select class="filter-select" id="filter-status">
+                    <option value="">All Status</option>
+                    <option value="keep">Keep</option>
+                    <option value="discard">Discard</option>
+                    <option value="crash">Crash</option>
+                </select>
+                <select class="filter-select" id="filter-class">
+                    <option value="">All Classes</option>
+                    <option value="architecture">Architecture</option>
+                    <option value="optimizer">Optimizer</option>
+                    <option value="schedule">Schedule</option>
+                    <option value="batching">Batching</option>
+                    <option value="exploration">Exploration</option>
+                    <option value="simplification">Simplification</option>
+                </select>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Time</th>
+                            <th>Class</th>
+                            <th>AI Summary</th>
+                            <th>val_loss</th>
+                            <th>Status</th>
+                            <th>Verdict</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Trends -->
+        <div id="page-trends" class="page">
+            <div class="chart-container">
+                <div class="chart-title">val_loss Over Time</div>
+                <canvas id="trend-valloss" height="250"></canvas>
+            </div>
+            <div class="chart-row">
+                <div class="chart-container">
+                    <div class="chart-title">Keep Rate (Rolling 5)</div>
+                    <canvas id="trend-keeprate" height="200"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Crash Rate (Rolling 5)</div>
+                    <canvas id="trend-crashrate" height="200"></canvas>
+                </div>
+            </div>
+            <div class="chart-container">
+                <div class="chart-title">Success Rate by Experiment Class</div>
+                <canvas id="trend-class" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script src="app.js"></script>
+</body>
+</html>
